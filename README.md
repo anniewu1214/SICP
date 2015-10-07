@@ -1,36 +1,36 @@
 # LearningSICP
-This repository records my learning of SICP(Structure and Interpretation of Computer Programs). It contains exercise solutions and selected examples.
+This repository records my learning history of SICP(Structure and Interpretation of Computer Programs), including exercise solutions and selected examples. The objective is to understand the fundamentals of programming and to practice writing elegant code. 
 
 ## Table of contents
-- Building Abstractions with Procedures
-  - The Elements of Programming
-  - Procedures and the Processes They Generate
-  - Formulating Abstractions with Higher-Order Procedures
+1. Building Abstractions with Procedures
+⋅⋅1. The Elements of Programming
+⋅⋅2. Procedures and the Processes They Generate
+⋅⋅3. Formulating Abstractions with Higher-Order Procedures
 
-- Building Abstractions with Data
-  - Introduction to Data Abstraction
-  - Hierarchical Data and the Closure Property
-  - Symbolic Data
-  - Multiple Representations for Abstract Data
-  - Systems with Generic Operations
+2. Building Abstractions with Data
+⋅⋅1. Introduction to Data Abstraction
+⋅⋅2. Hierarchical Data and the Closure Property
+⋅⋅3. Symbolic Data
+⋅⋅4. Multiple Representations for Abstract Data
+⋅⋅5. Systems with Generic Operations
   
-- Modularity, Objects, and State
-  - Assignment and Local State
-  - The Environment Model of Evaluation
-  - Modeling with Mutable Data
-  - Concurrency: Time Is of the Essence
-  - Streams
+3. Modularity, Objects, and State
+⋅⋅1. Assignment and Local State
+⋅⋅2. The Environment Model of Evaluation
+⋅⋅3. Modeling with Mutable Data
+⋅⋅4. Concurrency: Time Is of the Essence
+⋅⋅5. Streams
 
-- Metalinguistic Abstraction
-  - The Metacircular Evaluator
-  - Variations on a Scheme ­ Lazy Evaluation
-  - Variations on a Scheme ­ Nondeterministic Computing
-  - Logic Programming
+4. Metalinguistic Abstraction
+⋅⋅1.  The Metacircular Evaluator
+⋅⋅2.  Variations on a Scheme ­ Lazy Evaluation
+⋅⋅3.  Variations on a Scheme ­ Nondeterministic Computing
+⋅⋅4.  Logic Programming
 
-- Computing with Register Machines
-  - Designing Register Machines
-  - A Register-Machine Simulator
-  - Storage Allocation and Garbage Collection
-  - The Explicit-Control Evaluator
-  - Compilation
+5. Computing with Register Machines
+⋅⋅1.  Designing Register Machines
+⋅⋅2.  A Register-Machine Simulator
+⋅⋅3.  Storage Allocation and Garbage Collection
+⋅⋅4.  The Explicit-Control Evaluator
+⋅⋅5.  Compilation
   
