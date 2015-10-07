@@ -1,7 +1,8 @@
-# LearningSICP
+# Learning SICP
 This repository records my learning history of SICP(Structure and Interpretation of Computer Programs), including exercise solutions and selected examples. The objective is to understand the fundamentals of programming and to practice writing elegant code. 
 
 ## Table of contents
+
 1. Building Abstractions with Procedures
 ⋅⋅1. The Elements of Programming
 ⋅⋅2. Procedures and the Processes They Generate
