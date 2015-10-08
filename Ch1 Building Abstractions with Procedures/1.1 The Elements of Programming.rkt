@@ -1,6 +1,7 @@
 #lang planet neil/sicp
 
 ; ex 1.3
+; square sum of two largest numbers
 (define (square-sum-largest-two x y z)
   (cond
     ((and (>= x y) (>= y z)) (+ (* x x) (* y y)))
