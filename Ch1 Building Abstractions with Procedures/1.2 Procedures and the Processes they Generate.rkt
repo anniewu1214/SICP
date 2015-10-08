@@ -102,9 +102,6 @@
 
 ; ex 1.15, approximation of sin(x)
 ; time complexity = O(log(x))
-(define (square x) (* x x))
-(define (cube x) (* x x x))
-
 (define (sine x)  
   (define (p x) (- (* 3 x) (* 4 (cube x))))
   
@@ -126,8 +123,8 @@
   
   (gather b n 1))
 
-
 (define (even? n) (= (remainder n 2) 0))
+(define (square x) (* x x))
 
 (define (expt-fast b n)
   (cond ((= n 0) 1)
@@ -185,11 +182,13 @@
         ((= (remainder n test) 0) test)
         (else (smallest-divisor n (+ test 1)))))
 
-(define (brutal-prime? n)
-  (= (smallest-divisor n 2) n))
+(define (brutal-prime? n) 
+  (if (= n 1)
+      #f
+      (= (smallest-divisor n 2) n)))
 
 (brutal-prime? 97)
-
+ 
 ; fermat test
 (define (fast-prime? n times)
   (define (expmod a n m)
