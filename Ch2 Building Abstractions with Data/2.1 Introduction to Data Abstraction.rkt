@@ -158,7 +158,7 @@
     (lambda (x)
       ((a f) ((b f) x)))))
 
-; ex 2.7 Iterval Arithmetic
+; ex 2.7 Interval Arithmetic
 (define make-interval cons)
 (define lower-bound car)
 (define upper-bound cdr)
