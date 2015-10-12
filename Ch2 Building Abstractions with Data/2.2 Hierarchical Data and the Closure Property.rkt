@@ -103,8 +103,75 @@
 
 (deep-reverse (list 1 (list (list 2 3) 4 (list 5 6)) 7))
 
-; ex 2.28
-(define (fringe tree) 
-   ???)
+; * ex 2.28
+(define (fringe items)
+  (define (iter items acc)
+    (cond ((null? items) acc)
+          ((not (pair? items)) (cons items acc))
+          (else (iter (car items) (iter (cdr items) acc)))))
+  (iter items nil))
 
 (fringe (list (list 1 2) (list 3 4) 5))
+
+; ex 2.29
+
+; a. selectors and constructors
+(define (make-mobile left right)
+  (list left right))
+(define left-branch car)
+(define right-branch cadr)
+
+(define (make-branch length structure)
+  (list length structure))
+(define branch-length car)
+(define branch-structure cadr)
+
+; b. total weight of mobile
+(define structure-mobile? pair?)
+
+(define (branch-weight branch)
+  (let ((s (branch-structure branch)))
+    (if (structure-mobile? s)
+        (total-weight s)
+        s)))
+
+(define (total-weight mobile)
+  (+ (branch-weight (left-branch mobile))
+     (branch-weight (right-branch mobile))))
+
+(define m0 (make-mobile
+            (make-branch 1 (make-mobile (make-branch 1 2)
+                                        (make-branch 2 4)))
+            (make-branch 3 6)))
+
+(total-weight m0)
+
+; c. is the mobile balanced
+(define (branch-balanced? branch)
+  (let ((s (branch-structure branch)))
+    (if (structure-mobile? s)
+        (balanced? s)
+        #t)))
+
+(define (branch-torque branch)
+    (* (branch-weight branch)
+       (branch-length branch)))
+
+(define (balanced? mobile)
+  (let ((r (right-branch mobile)) (l (left-branch mobile)))
+    (and (= (branch-torque r)
+            (branch-torque l))
+         (branch-balanced? l)
+         (branch-balanced? r))))
+
+(balanced? (make-mobile (make-branch 2 1) 
+                        (make-branch 1 2))) 
+
+; d. change representation
+(define (make-mobile left right)
+  (cons left right))
+(define (make-branch length structure)
+  (cons length structure))
+
+(define right-branch cdr)
+(define branch-structure cdr)
