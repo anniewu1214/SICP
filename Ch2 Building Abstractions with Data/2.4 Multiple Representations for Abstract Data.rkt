@@ -160,7 +160,7 @@
   (put 'make-from-real-imag 'rectangular
        (lambda (x y) (tag (make-from-real-imag x y))))
   (put 'make-from-mag-ang 'rectangular
-       (lambda (x y) (tag (make-from-mag-ang r s))))
+       (lambda (r a) (tag (make-from-mag-ang r a))))
   'done)
 
 (define (install-polar-package)
@@ -170,7 +170,7 @@
   (define (real-part z)
     (* (magnitude z) (cos (angle z))))
   (define (imag-part z)
-    (* (mangnitude z) (sin (angle z))))
+    (* (magnitude z) (sin (angle z))))
   (define make-from-mag-ang cons)
   (define (make-from-real-imag x y)
     (cons (sqrt (+ (square x) (square y)))
@@ -184,14 +184,14 @@
   (put 'make-from-real-imag 'polar
        (lambda (x y) (tag (make-from-real-imag x y))))
   (put 'make-from-mag-ang 'polar
-       (lambda (x y) (tag (make-from-mag-ang r a))))
+       (lambda (r a) (tag (make-from-mag-ang r a))))
   'done)
 
 (define (apply-generic op . args)
   (let ((type-tags (map type-tag args)))
     (let ((proc (get op type-tags)))
       (if proc
-          (apply proc (map contents arts))
+          (apply proc (map contents args))
           (error "No method for these types: APPLY-GENERIC"
                  (list op type-tags))))))
 
@@ -201,7 +201,7 @@
 
 (define (magnitude z) (apply-generic 'magnitude z))
 
-(define (anglz z) (apply-generic 'angle z))
+(define (angle z) (apply-generic 'angle z))
 
 (define (make-from-real-imag x y)
   ((get 'make-from-real-imag 'rectangular) x y))
