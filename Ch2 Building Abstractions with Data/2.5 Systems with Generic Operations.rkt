@@ -204,3 +204,18 @@
 (define (equ? x y) (apply-generic 'equ? x y))
 ; ex 2.80
 (define (=zero? x y) (apply-generic '=zero? x y))
+
+; Combining Data of Different Types
+
+; coercion table: transform type1->type2
+(define (put-coercion <type1> <type2> <transform>) nil)
+(define (get-coercion <type1> <type2>) nil)
+
+(define (scheme-number->complex n)
+  (make-complex-from-real-imag (contents n) 0))
+
+(put-coercion 'scheme-number 'complex scheme-number->complex)
+
+
+
+
