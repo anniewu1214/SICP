@@ -99,7 +99,6 @@
 ((rand 'reset) 99)
 (rand 'generate)
 
-
 ; ex 3.7
 (define (make-joint account old-pwd new-pwd)
   ((account old-pwd 'withdraw) 0) ; test old-pwd
