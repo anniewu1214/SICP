@@ -236,12 +236,12 @@
   (if (empty-deque? deque)
       (error "FRONT called with an empty deque" deque)
       (caar (front-ptr deque))))
-  
+
 (define (rear-deque deque)
   (if (empty-deque? deque)
       (error "REAR called with an empty deque" deque)
       (caar (rear-ptr deque))))
-  
+
 (define (front-insert-deque! deque item)
   (let ((new-pair (cons (cons item nil) nil)))
     (cond ((empty-deque? deque)
@@ -253,7 +253,7 @@
            (set-cdr! (car (front-ptr deque)) new-pair)
            (set-front-ptr! deque new-pair)
            (print-deque deque)))))
-           
+
 (define (rear-insert-deque! deque item)
   (let ((new-pair (cons (cons item nil) nil)))
     (cond ((empty-deque? deque)
@@ -373,3 +373,363 @@
 (define operation-table (make-table))
 (define get (operation-table 'lookup-proc))
 (define put (operation-table 'insert-proc!))
+
+; ex 3.24, ex 3.25, general N dimentional table
+(define (make-general-table same-key?)
+  (let ((local-table (list '*table*)))
+    ; returns the record that has the given key as its car
+    (define (assoc key records)
+      (cond ((null? records) #f)
+            ((same-key? key (caar records)) (car records))
+            (else (assoc key (cdr records)))))
+    ; returns the value of a key, false if not in table
+    (define (lookup key-list)
+      (define (iter keys table)
+        (let ((subtable (assoc (car keys) (cdr table))))
+          (if subtable
+              (if (null? (cdr keys))
+                  (cdr subtable)
+                  (iter (cdr keys) subtable))
+              #f)))
+      (iter key-list local-table))
+    
+    (define (insert! key-list value)
+      (define (make-entry keys)
+        (if (null? (cdr keys))
+            (cons (car keys) value)
+            (list (car keys) (make-entry (cdr keys)))))
+      
+      (define (iter keys table)
+        (let ((subtable (assoc (car keys) (cdr table))))
+          (if subtable
+              (if (null? (cdr keys))
+                  (set-cdr! subtable value)
+                  (iter (cdr keys) subtable))
+              (set-cdr! table
+                        (cons (make-entry keys)
+                              (cdr table))))))
+      (iter key-list local-table))
+    
+    (define (dispatch m)
+      (cond ((eq? m 'lookup-proc) lookup)
+            ((eq? m 'insert-proc!) insert!)
+            (else (error "Unknown operation -- TABLE" m))))
+    dispatch))
+
+(define g-table (make-general-table equal?))
+(define get (g-table 'lookup-proc))
+(define put (g-table 'insert-proc!))
+
+(put '(letter a) 97)
+(put '(letter b) 98)
+(put '(greek majiscule alpha) 923)
+(put '(greek miniscule lambda) 955)
+
+(get '(letter b))
+(get '(greek majiscule alpha))
+
+; ex 3.26, binary search tree
+(define (entry tree) (car tree))
+(define (left-branch  tree) (cadr tree))
+(define (right-branch tree) (caddr tree))
+(define (make-tree entry left right) (list entry left right))
+
+(define (lookup-tree key records)
+  (if (null? records)
+      #f
+      (let ((record (entry records)))
+        (cond ((= key (car record)) record)
+              ((< key (car record)) (lookup-tree key (left-branch records)))
+              (else (lookup-tree key (right-branch records)))))))
+
+(define (insert-tree record records)
+  (cond ((null? records) (make-tree record nil nil))
+        ((= (car record) (car (entry records))) records)
+        ((< (car record) (car (entry records)))
+         (make-tree (entry records)
+                    (insert-tree record (left-branch records))
+                    (right-branch records)))
+        (else
+         (make-tree (entry records)
+                    (left-branch records)
+                    (insert-tree record (right-branch records))))))
+
+(define (make-table-BST)
+  (let ((local-table '()))
+    
+    (define (lookup key)
+      (define (iter key records)
+        (cond ((null? records) #f)
+              ((= key (car (entry records))) (entry records))
+              ((< key (car (entry records))) (iter key (left-branch records)))
+              (else (iter key (right-branch records)))))
+      (iter key local-table))
+    
+    (define (insert! key value)
+      (let ((record (lookup key)))
+        (if record
+            (set-cdr! record value)
+            (set! local-table (insert-tree (cons key value) local-table)))))
+    
+    (define (dispatch m)
+      (cond ((eq? m 'get-proc) lookup)
+            ((eq? m 'put-proc) insert!)
+            ((eq? m 'print-proc) local-table)
+            (else (error "Undefined operation -- TABLE" m))))
+    dispatch))
+
+(define table-BST (make-table-BST))
+(define get (table-BST 'get-proc))
+(define put (table-BST 'put-proc))
+
+(put 97 'a)
+(put 98 'b)
+(put 99 'c)
+(put 100 'd)
+
+(display (table-BST 'print-proc))
+(get 100)
+
+; ex 3.27, memoization
+(define (memorize f)
+  (let ((table (make-table)))
+    (lambda (x)
+      (let ((pre-result (lookup x table)))
+        (or pre-result
+            (let ((result (f x)))
+              (insert! x result table)
+              result))))))
+
+(define memo-fib
+  (memorize (lambda (n)
+              (cond ((= n 0) 0)
+                    ((= n 1) 1)
+                    (else (+ (memo-fib (- n 1))
+                             (memo-fib (- n 2))))))))
+
+(memo-fib 4)
+
+; * a simulator for digital circuits
+(define (half-adder a b s c)
+  (let ((d (make-wire)) (e (make-wire)))
+    (or-gate a b d)
+    (and-gate a b c)
+    (inverter c e)
+    (and-gate d e s)
+    'ok))
+
+(define (full-adder a b c-in sum c-out)
+  (let ((s (make-wire)) (c1 (make-wire)) (c2 (make-wire)))
+    (half-adder b c-in s c1)
+    (half-adder a s sum c2)
+    (or-gate c1 c2 c-out)
+    'ok))
+
+; associate with the input wire a procedure that will be run whenever
+; the signal on the input changes value
+(define (inverter input output)
+  
+  (define (logical-not s)
+    (cond ((= s 0) 1)
+          ((= s 1) 0)
+          (else (error "Invalid signal" s))))
+  
+  (define (invert-input)
+    (let ((new-value (logical-not (get-signal input))))
+      (after-delay inverter-delay
+                   (lambda ()
+                     (set-signal! output new-value)))))
+  
+  (add-action! input invert-input)
+  'ok)
+
+; the action procedure will be run if either of the inputs to the gate changes
+(define (and-gate a1 a2 output)
+  (define (logical-and x y)
+    (if (or (and (= x 1) (= y 1))
+            (and (= x 0) (= y 0)))
+        1
+        0))
+  
+  (define (and-action-procedure)
+    (let ((new-value (logical-and (get-signal a1) (get-signal a2))))
+      (after-delay and-gate-delay
+                   (lambda ()
+                     (set-signal! output new-value)))))
+  
+  (add-action! a1 and-action-procedure)
+  (add-action! a2 and-action-procedure)
+  'ok)
+
+; ex 3.28
+(define (or-gate a1 a2 output)
+  (define (logical-or x y)
+    (if (or (= x 1) (= y 1))
+        1
+        0))
+  
+  (define (or-action-procedure)
+    (let ((new-value (logical-or (get-signal a1) (get-signal a2))))
+      (after-delay or-gate-delay
+                   (lambda ()
+                     (set-signal! output new-value)))))
+  
+  (add-action! a1 or-action-procedure)
+  (add-action! a2 or-action-procedure)
+  'ok)
+
+; ex 3.29
+; (A or B) <=> (not ((not A) and (not B)))
+; and-gate-delay = or-gate-delay + 2 * inverter-delay
+(define (or-gate-2 a1 a2 output)
+  (let ((c1 (make-wire)) (c2 (make-wire)) (c3 (make-wire)))
+    (inverter a1 c1)
+    (inverter a2 c2)
+    (and-gate c1 c2 c3)
+    (inverter c3 output)))
+
+; ex 3.30, ripple-carry adder
+(define (ripple-carry-adder A B S C)
+  (let ((c-in (make-wire)))
+    (if (null? (cdr A))
+        (set-signal! c-in 0)
+        (ripple-carry-adder (cdr A) (cdr B) (cdr S) c-in))
+    (full-adder (car A) (car B) c-in (car S) C)))
+
+(define (make-wire)
+  (let ((signal-value 0) (action-procedures '()))
+    
+    (define (set-my-signal! new-value)
+      (if (not (= signal-value new-value))
+          (begin (set! signal-value new-value)
+                 (call-each action-procedures))
+          'done))
+    
+    ; ex 3.31
+    ; To trigger actions, otherwise the agenda tabel will be empty and no actions will be taken.
+    (define (accept-action-procedure! proc)
+      (set! action-procedures (cons proc action-procedures))
+      (proc))
+    
+    (define (dispatch m)
+      (cond ((eq? m 'get-signal) signal-value)
+            ((eq? m 'set-signal!) set-my-signal!)
+            ((eq? m 'add-action!) accept-action-procedure!)
+            (else (error "Unknown operation -- WIRE" m))))
+    dispatch))
+
+(define (call-each procedures)
+  (if (null? procedures)
+      'done
+      (begin ((car procedures))
+             (call-each (cdr procedures)))))
+
+(define (get-signal wire)
+  (wire 'get-signal))
+
+(define (set-signal! wire new-value)
+  ((wire 'set-signal!) new-value))
+
+; asserts that the designated proc should be run whenever the signal changes
+(define (add-action! wire action-procedure)
+  ((wire 'add-action!) action-procedure))
+
+; execute proc after a delay
+(define (after-delay delay action)
+  (add-to-agenda! (+ delay (current-time the-agenda))
+                  action
+                  the-agenda))
+
+; agenda
+(define (make-time-segment time queue) (cons time queue))
+(define (segment-time s) (car s))
+(define (segment-queue s) (cdr s))
+
+(define (make-agenda) (list 0))
+(define (current-time agenda) (car agenda))
+(define (set-current-time! agenda time) (set-car! agenda time))
+(define (segments agenda) (cdr agenda))
+(define (set-segments! agenda segments) (set-cdr! agenda segments))
+(define (first-segment agenda) (car (segments agenda)))
+(define (rest-segments agenda) (cdr (segments agenda)))
+
+(define (empty-agenda? agenda) (null? (segments agenda)))
+
+(define (add-to-agenda! time action agenda)
+  
+  (define (belongs-before? segments)
+    (or (null? segments)
+        (< time (segment-time (car segments)))))
+  
+  (define (make-new-time-segment time action)
+    (let ((q (make-queue)))
+      (insert-queue! q action)
+      (make-time-segment time q)))
+  
+  (define (add-to-segments! segments)
+    (if (= (segment-time (car segments)) time)
+        (insert-queue! (segment-queue (car segments)) action)
+        (let ((rest (cdr segments)))
+          (if (belongs-before? rest)
+              (set-cdr! segments
+                        (cons (make-new-time-segment time action)
+                              (cdr segments)))
+              (add-to-segments! rest)))))
+  
+  (let ((segments (segments agenda)))
+    (if (belongs-before? segments)
+        (set-segments!
+         agenda
+         (cons (make-new-time-segment time action)
+               segments))
+        (add-to-segments! segments))))
+
+(define (remove-first-agenda-item! agenda)
+  (let ((q (segment-queue (first-segment agenda))))
+    (delete-queue! q)
+    (if (empty-queue? q)
+        (set-segments! agenda (rest-segments agenda)))))
+
+(define (first-agenda-item agenda)
+  (if (empty-agenda? agenda)
+      (error "Agenda is empty: FIRST-AGENDA-ITEM")
+      (let ((first-seg (first-segment agenda)))
+        (set-current-time! agenda (segment-time first-seg))
+        (front-queue (segment-queue first-seg)))))
+
+; execute each proc on the agenda in sequence
+(define (propagate)
+  (if (empty-agenda? the-agenda)
+      'done
+      (let ((first-item (first-agenda-item the-agenda)))
+        (first-item)
+        (remove-first-agenda-item! the-agenda)
+        (propagate))))
+
+; add a probe on a wire
+(define (probe name wire)
+  (add-action! wire
+               (lambda ()
+                 (newline) (display name) (display " ")
+                 (display (current-time the-agenda))
+                 (display "  New-value = ")
+                 (display (get-signal wire)))))
+
+(define the-agenda (make-agenda))
+(define inverter-delay 2)
+(define and-gate-delay 3)
+(define or-gate-delay 5)
+
+; define 4 wires, placing probes on two of them
+(define input-1 (make-wire))
+(define input-2 (make-wire))
+(define sum (make-wire))
+(define carry (make-wire))
+
+(probe 'sum sum)
+(probe 'carry carry)
+
+(half-adder input-1 input-2 sum carry)
+(set-signal! input-1 1)
+
+(propagate)                        
