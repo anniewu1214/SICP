@@ -16,7 +16,6 @@
 (parallel-execute (lambda () (set! x ((s (lambda () (* x x))))))
                   (s (lambda () (set! x (+ x 1)))))
 
-
 ; ex 3.40
 ;
 ; 10^6: P1 -> P2, or P2 -> P1
@@ -29,7 +28,6 @@
 
 (parallel-execute (s (lambda () (set! x (* x x))))
                   (s (lambda () (set! x (* x x x)))))
-
 
 ; ex 3.41
 ;
@@ -135,7 +133,6 @@
 ; and (account 'deposit) have already been locked (by the same serializer as exchange),
 ; thus the whole exchange procedure is locked and won't execute.
 
-
 (define (make-serializer)
   ;;; once a mutex is acquired, no other acquire operations on that mutex
   ;;; may proceed until the mutex is released
@@ -147,7 +144,6 @@
           (mutex 'release)
           val))
       serialized-p)))
-
 
 (define (make-mutex)
   (let ((cell (list #f))) ; false <=> not acquired, true <=> acquired
@@ -170,7 +166,6 @@
 ; We must guarentee that once a process has tested the cell and found it to be false,
 ; the cell contents will actually be set to true before any other process can test the cell.
 (define (test-and-set! cell)
-  ;;; if not acquired (false), set cell to acquired (true), and return false, if acquired returns true
   (if (car cell)
       #t
       (begin (set-car! cell true)
@@ -193,16 +188,16 @@
              (mutex 'release))))
     the-semaphore))
 
-; implementation of semaphore using atomic test-and-set! operations
+; implementation of semaphore using atomic test-and-set!
 (define (make-semaphore-2 n)
-  (let ((count-locked (list false)) (count 0))
+  (let ((count-locked (list #f)) (count 0))
     
-    (define (lock-acquired)
+    (define (lock-count)
       (if (test-and-set! count-locked)
-          (lock-acquired)))
+          (lock-count)))
     
     (define (the-semaphore m)
-      (lock-acquired) ; lock
+      (lock-count) ; lock
       (cond ((eq? m 'acquire)
              (cond ((< count n)
                     (set! count (inc count))
@@ -214,3 +209,32 @@
              (set! count (dec count))
              (clear! count-locked))))
     the-semaphore))
+
+; ex 3.48, deadlock-avoidance method
+; If each process acquires the smallest-numbered account P, then P is 
+; always locked firstly, other procedures can't proceed before P is released.
+(define (make-account-no-deadlock id balance)
+  (define (withdraw amount)
+    (if (>= balance amount)
+        (begin (set! balance (- balance amount))
+               balance)
+        "Insufficient funds"))
+  (define (deposit amount)
+    (set! balance (+ balance amount))
+    balance)
+  (let ((balance-serializer (make-serializer)))
+    (define (dispatch m)
+      (cond ((eq? m 'withdraw) withdraw)
+            ((eq? m 'deposit) deposit)
+            ((eq? m 'balance) balance)
+            ((eq? m 'serializer) balance-serializer)
+            ((eq? m 'id) id)
+            (else (error "Unknown request -- MAKE-ACCOUNT" m))))
+    dispatch))
+
+(define (serialized-exchange-no-deadlock account1 account2)
+  (let ((s1 (account1 'serializer))
+        (s2 (account2 'serializer)))
+    (if (< (account1 'id) (account2 'id))
+        ((s2 (s1 exchange)) account1 account2)
+        ((s1 (s2 exchange)) account1 account2))))
