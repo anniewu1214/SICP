@@ -104,7 +104,7 @@
 
 (display-line sum) ; 1
 
-(define y (stream-filter even? seq)) ; 
+(define y (stream-filter even? seq))
 
 (display-line sum) ; 6
 (display seq)
@@ -231,12 +231,15 @@
 
 ; print the first n elemnts of a stream
 (define (display-first-terms stream n)
-  (if (> n 0)
+  (define (iter stream n)
+    (if (> n 0)
       (begin (display (stream-car stream))
              (display " ")
-             (display-first-terms (stream-cdr stream) (dec n)))))
+             (iter (stream-cdr stream) (dec n)))))
+  (iter stream n)
+  (newline))
 
-(display-first-terms SS 10) (newline)
+(display-first-terms SS 10)
 
 ; ex 3.58, [num/den] in radix
 (define (expand num den radix)
@@ -244,8 +247,8 @@
    (quotient (* num radix) den)
    (expand (remainder (* num radix) den) den radix)))
 
-(display-first-terms (expand 1 7 10) 10) (newline)
-(display-first-terms (expand 3 8 10) 10) (newline)
+(display-first-terms (expand 1 7 10) 10)
+(display-first-terms (expand 3 8 10) 10)
 
 
 ; ex 3.59, power series
@@ -256,10 +259,10 @@
 (define sine-series (cons-stream 0 (integrate-series cosine-series)))
 (define cosine-series (cons-stream 1 (integrate-series (scale-stream sine-series -1))))
 
-(display-first-terms exp-series 5) (newline) ; 1 1 1/2 1/6 1/24
-(display-first-terms (integrate-series integers) 5) (newline) ; 1 1 1 1 1
-(display-first-terms cosine-series 5) (newline) ; 1 0 -1/2 0 1/24 
-(display-first-terms sine-series 5) (newline) ; 0 1 0 -1/6 0
+(display-first-terms exp-series 5) ; 1 1 1/2 1/6 1/24
+(display-first-terms (integrate-series integers) 5) ; 1 1 1 1 1
+(display-first-terms cosine-series 5) ; 1 0 -1/2 0 1/24 
+(display-first-terms sine-series 5) ; 0 1 0 -1/6 0
 
 ; ex 3.60, multiply series
 (define (mul-series s1 s2)
@@ -274,7 +277,7 @@
    (mul-series sine-series sine-series)
    (mul-series cosine-series cosine-series)))
 
-(display-first-terms sinx^2+cosx^2 5) (newline) ; 1 0 0 0 0
+(display-first-terms sinx^2+cosx^2 5) ; 1 0 0 0 0
 
 ; ex 3.61, invert series
 (define (invert-series s)
@@ -286,7 +289,7 @@
   (mul-series cosine-series
               (invert-series cosine-series)))
 
-(display-first-terms unit 5) (newline) ; 1 0 0 0 0
+(display-first-terms unit 5) ; 1 0 0 0 0
 
 ; ex 3.62, devide series
 (define (div-series s1 s2)
@@ -303,7 +306,7 @@
 (define tangent-series
   (div-series sine-series cosine-series))
 
-(display-first-terms tangent-series 7) (newline) ; 0 1 0 1/3 0 2/15 0
+(display-first-terms tangent-series 7) ; 0 1 0 1/3 0 2/15 0
 
 
 ; Stream Paradigm: represent state as a timeless stream of values
@@ -322,7 +325,7 @@
                  guesses)))
   guesses)
 
-(display-first-terms (sqrt-stream 2) 7) (newline)
+(display-first-terms (sqrt-stream 2) 7)
 
 ; estimate pi using streams
 (define (pi-summands n)
@@ -330,7 +333,7 @@
                (scale-stream (pi-summands (+ n 2)) -1)))
 
 (define pi-stream (scale-stream (partial-sums (pi-summands 1)) 4))
-(display-first-terms pi-stream 7) (newline)
+(display-first-terms pi-stream 7)
 
 ; sequence accelerator
 (define (euler-transform s)
@@ -341,7 +344,7 @@
                           (+ s0 (* -2 s1) s2)))
                  (euler-transform (stream-cdr s)))))
 
-(display-first-terms (euler-transform pi-stream) 7) (newline)
+(display-first-terms (euler-transform pi-stream) 7)
 
 (define (make-tableau transform s)
   (cons-stream s
@@ -352,7 +355,7 @@
               (make-tableau transform s)))
 
 (display-first-terms
- (accelerated-sequence euler-transform pi-stream) 7) (newline)
+ (accelerated-sequence euler-transform pi-stream) 7)
 
 ; ex 3.63
 ; without the local variable, the results won't be memorized, to compute
@@ -384,7 +387,7 @@
 (define ln2-stream (partial-sums (ln2-summands 1)))
 (define accelerated-ln2 (accelerated-sequence euler-transform ln2-stream))
 
-(display-first-terms accelerated-ln2 7) (newline)
+(display-first-terms accelerated-ln2 7)
 
 ; infinite streams of pairs
 (define (interleave s1 s2)
@@ -410,7 +413,7 @@
 
 ; ex 3.66
 ; the number of preceding paris of (i,j) is 2^(i-1)(max(1, 2(j-i))+1) - 2
-(display-first-terms int-pairs 10) (newline)
+(display-first-terms int-pairs 10)
 
 ; ex 3.67
 (define (all-pairs s t)
@@ -454,7 +457,7 @@
                       (square (caddr x))))
                  int-triples))
 
-(display-first-terms pythagorean-triples 3) (newline) ; (3 4 5) (6 8 10) (5 12 13)
+(display-first-terms pythagorean-triples 3) ; (3 4 5) (6 8 10) (5 12 13)
 
 ; ex 3.70, order pairs by weight
 (define (merge-weighted s1 s2 weight)
@@ -488,7 +491,7 @@
                   integers
                   (lambda (x) (+ (car x) (cadr x)))))
 
-(display-first-terms pairs-ordered-by-sum 5) (newline) ; (1 1) (1 2) (1 3) (2 2) (1 4)
+(display-first-terms pairs-ordered-by-sum 5) ; (1 1) (1 2) (1 3) (2 2) (1 4)
 
 (define pairs-ordered-by-blabla
   (let ((ints-blabla
@@ -503,7 +506,7 @@
                             (j (cadr x)))
                         (+ (* 2 i) (* 3 j) (* 5 i j)))))))
 
-(display-first-terms pairs-ordered-by-blabla 5) (newline) ; (1 1) (1 7) (1 11) (1 13) (1 17)
+(display-first-terms pairs-ordered-by-blabla 5) ; (1 1) (1 7) (1 11) (1 13) (1 17)
 
 ; ex 3.71, Ramanujan numbers
 (define (cube x) (* x x x))
@@ -517,7 +520,7 @@
                   integers
                   cube-sum-weight))
 
-(display-first-terms pairs-ordered-by-cube-sum 5) (newline)
+(display-first-terms pairs-ordered-by-cube-sum 5)
 
 (define Ramanujan-numbers
   (let ((weights (stream-map cube-sum-weight
@@ -531,7 +534,7 @@
             (search (stream-cdr weights)))))
     (search weights)))
 
-(display-first-terms Ramanujan-numbers 5) (newline) ; 1729 4104 13832 20683 32832
+(display-first-terms Ramanujan-numbers 5) ; 1729 4104 13832 20683 32832
 
 ; ex 3.72, numbers that can be written as sum of two squares in 3 different ways
 (define (square-sum-weight x)
@@ -554,4 +557,4 @@
 
 (define numbers-2.72 (search-3.72 pairs-ordered-by-3.72))
 
-(display-first-terms numbers-2.72 2) (newline) ; (325 (1 18) (6 17) (10 15)) (425 (5 20) (8 19) (13 16))
+(display-first-terms numbers-2.72 2) ; (325 (1 18) (6 17) (10 15)) (425 (5 20) (8 19) (13 16))
