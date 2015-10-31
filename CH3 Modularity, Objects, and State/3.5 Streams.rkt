@@ -385,3 +385,173 @@
 (define accelerated-ln2 (accelerated-sequence euler-transform ln2-stream))
 
 (display-first-terms accelerated-ln2 7) (newline)
+
+; infinite streams of pairs
+(define (interleave s1 s2)
+  ;;; interleave two infinite streams
+  (if (stream-null? s1)
+      s2
+      (cons-stream (stream-car s1)
+                   (interleave s2 (stream-cdr s1)))))
+
+(define (pairs s t)
+  (cons-stream
+   (list (stream-car s) (stream-car t))
+   (interleave
+    (stream-map (lambda (x) (list (stream-car s) x))
+                (stream-cdr t))
+    (pairs (stream-cdr s) (stream-cdr t)))))
+
+(define int-pairs (pairs integers integers))
+
+(stream-filter (lambda (pair)
+                 (prime? (+ (car pair) (cadr pair))))
+               int-pairs)
+
+; ex 3.66
+; the number of preceding paris of (i,j) is 2^(i-1)(max(1, 2(j-i))+1) - 2
+(display-first-terms int-pairs 10) (newline)
+
+; ex 3.67
+(define (all-pairs s t)
+  (cons-stream
+   (list (stream-car s) (stream-car t))
+   (interleave
+    (stream-map (lambda (x) (list x (stream-car t)))
+                (stream-cdr s))
+    (interleave
+     (stream-map (lambda (x) (list (stream-car s) x))
+                 (stream-cdr t))
+     (all-pairs (stream-cdr s) (stream-cdr t))))))
+
+; ex 3.68
+; bad-pairs will run into inifinite loop
+(define (bad-pairs s t)
+  (interleave
+   (stream-map (lambda (x) (list (stream-car s) x))
+               t)
+   (bad-pairs (stream-cdr s) (stream-cdr t))))
+
+
+; ex 3.69
+(define (triples s t u)
+  (cons-stream (list (stream-car s)
+                     (stream-car t)
+                     (stream-car u))
+               (interleave
+                (stream-map (lambda (x)
+                              (cons (stream-car s) x))
+                            (stream-cdr (pairs t u)))
+                (triples (stream-cdr s)
+                         (stream-cdr t)
+                         (stream-cdr u)))))
+
+(define int-triples (triples integers integers integers))
+
+(define pythagorean-triples
+  (stream-filter (lambda (x)
+                   (= (+ (square (car x)) (square (cadr x)))
+                      (square (caddr x))))
+                 int-triples))
+
+(display-first-terms pythagorean-triples 3) (newline) ; (3 4 5) (6 8 10) (5 12 13)
+
+; ex 3.70, order pairs by weight
+(define (merge-weighted s1 s2 weight)
+  (cond ((stream-null? s1) s2)
+        ((stream-null? s2) s1)
+        (else
+         (let ((s1car (stream-car s1))
+               (s2car (stream-car s2)))
+           (cond ((< (weight s1car) (weight s2car))
+                  (cons-stream s1car
+                               (merge-weighted (stream-cdr s1) s2 weight)))
+                 ((> (weight s1car) (weight s2car))
+                  (cons-stream s2car
+                               (merge-weighted s1 (stream-cdr s2) weight)))
+                 (else
+                  (cons-stream s1car
+                               (cons-stream s2car
+                                            (merge-weighted (stream-cdr s1) (stream-cdr s2) weight)))))))))
+
+(define (weighted-pairs s t weight)
+  (cons-stream
+   (list (stream-car s) (stream-car t))
+   (merge-weighted
+    (stream-map (lambda (x) (list (stream-car s) x))
+                (stream-cdr t))
+    (weighted-pairs (stream-cdr s) (stream-cdr t) weight)
+    weight)))
+
+(define pairs-ordered-by-sum
+  (weighted-pairs integers
+                  integers
+                  (lambda (x) (+ (car x) (cadr x)))))
+
+(display-first-terms pairs-ordered-by-sum 5) (newline) ; (1 1) (1 2) (1 3) (2 2) (1 4)
+
+(define pairs-ordered-by-blabla
+  (let ((ints-blabla
+         (stream-filter (lambda (x) (not (or (divisible? x 2)
+                                             (divisible? x 3)
+                                             (divisible? x 5))))
+                        integers)))
+    (weighted-pairs ints-blabla
+                    ints-blabla
+                    (lambda (x)
+                      (let ((i (car x))
+                            (j (cadr x)))
+                        (+ (* 2 i) (* 3 j) (* 5 i j)))))))
+
+(display-first-terms pairs-ordered-by-blabla 5) (newline) ; (1 1) (1 7) (1 11) (1 13) (1 17)
+
+; ex 3.71, Ramanujan numbers
+(define (cube x) (* x x x))
+
+(define (cube-sum-weight x)
+  (+ (cube (car x))
+     (cube (cadr x))))
+
+(define pairs-ordered-by-cube-sum
+  (weighted-pairs integers
+                  integers
+                  cube-sum-weight))
+
+(display-first-terms pairs-ordered-by-cube-sum 5) (newline)
+
+(define Ramanujan-numbers
+  (let ((weights (stream-map cube-sum-weight
+                             pairs-ordered-by-cube-sum)))
+    (define (search weights)
+      (let ((first (stream-car weights))
+            (second (stream-car (stream-cdr weights))))
+        (if (= first second)
+            (cons-stream second
+                         (search (stream-cdr (stream-cdr weights))))
+            (search (stream-cdr weights)))))
+    (search weights)))
+
+(display-first-terms Ramanujan-numbers 5) (newline) ; 1729 4104 13832 20683 32832
+
+; ex 3.72, numbers that can be written as sum of two squares in 3 different ways
+(define (square-sum-weight x)
+  (+ (square (car x))
+     (square (cadr x))))
+
+(define pairs-ordered-by-3.72
+  (weighted-pairs integers
+                  integers
+                  square-sum-weight))
+
+(define (search-3.72 pairs)
+      (let ((first (stream-car pairs))
+            (second (stream-car (stream-cdr pairs)))
+            (third (stream-car (stream-cdr (stream-cdr pairs)))))
+        (if (= (square-sum-weight first) (square-sum-weight second) (square-sum-weight third))
+            (cons-stream (list (square-sum-weight first) first second third)
+                         (search-3.72 (stream-cdr (stream-cdr (stream-cdr pairs)))))
+            (search-3.72 (stream-cdr pairs)))))
+
+(define numbers-2.72 (search-3.72 pairs-ordered-by-3.72))
+
+(display-first-terms numbers-2.72 2) (newline) ; (325 (1 18) (6 17) (10 15)) (425 (5 20) (8 19) (13 16))
