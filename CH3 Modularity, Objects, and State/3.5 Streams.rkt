@@ -233,9 +233,9 @@
 (define (display-first-terms stream n)
   (define (iter stream n)
     (if (> n 0)
-      (begin (display (stream-car stream))
-             (display " ")
-             (iter (stream-cdr stream) (dec n)))))
+        (begin (display (stream-car stream))
+               (display " ")
+               (iter (stream-cdr stream) (dec n)))))
   (iter stream n)
   (newline))
 
@@ -291,7 +291,7 @@
 
 (display-first-terms unit 5) ; 1 0 0 0 0
 
-; ex 3.62, devide series
+; ex 3.62, divide series
 (define (div-series s1 s2)
   (let ((constant-denom (stream-car s2)))
     (if (= constant-denom 0)
@@ -547,14 +547,123 @@
                   square-sum-weight))
 
 (define (search-3.72 pairs)
-      (let ((first (stream-car pairs))
-            (second (stream-car (stream-cdr pairs)))
-            (third (stream-car (stream-cdr (stream-cdr pairs)))))
-        (if (= (square-sum-weight first) (square-sum-weight second) (square-sum-weight third))
-            (cons-stream (list (square-sum-weight first) first second third)
-                         (search-3.72 (stream-cdr (stream-cdr (stream-cdr pairs)))))
-            (search-3.72 (stream-cdr pairs)))))
+  (let ((first (stream-car pairs))
+        (second (stream-car (stream-cdr pairs)))
+        (third (stream-car (stream-cdr (stream-cdr pairs)))))
+    (if (= (square-sum-weight first) (square-sum-weight second) (square-sum-weight third))
+        (cons-stream (list (square-sum-weight first) first second third)
+                     (search-3.72 (stream-cdr (stream-cdr (stream-cdr pairs)))))
+        (search-3.72 (stream-cdr pairs)))))
 
-(define numbers-2.72 (search-3.72 pairs-ordered-by-3.72))
+(define numbers-3.72 (search-3.72 pairs-ordered-by-3.72))
 
-(display-first-terms numbers-2.72 2) ; (325 (1 18) (6 17) (10 15)) (425 (5 20) (8 19) (13 16))
+(display-first-terms numbers-3.72 2) ; (325 (1 18) (6 17) (10 15)) (425 (5 20) (8 19) (13 16))
+
+; streams and delayed evaluation
+(define (integral delayed-integrand init-val dt)
+  (define int
+    (cons-stream init-val
+                 (let ((integrand (force delayed-integrand)))
+                   (add-streams (scale-stream integrand dt)
+                                int))))
+  int)
+
+(define (solve f y0 dt)
+  ;;; error: cannot use before initialization
+  (define y (integral (delay dy) y0 dt))
+  (define dy (stream-map f y))
+  y)
+
+(stream-ref (solve (lambda (y) y) 1 0.01) 100)
+
+; ex 3.77
+(define (integral-2 delayed-integrand init-val dt)
+  (cons-stream init-val
+               (let ((integrand (force delayed-integrand)))
+                 (if (stream-null? integrand)
+                     the-empty-stream
+                     (integral (stream-cdr integrand)
+                               (+ (* dt (stream-car integrand))
+                                  init-val)
+                               dt)))))
+
+; ex 3.78
+(define (solve-2nd a b y0 dy0 dt)
+  (define y (integral (delay dy) y0 dt))
+  (define dy (integral (delay ddy) dy0 dt))
+  (define ddy (add-streams (scale-stream dy a) (scale-stream y b)))
+  y)
+
+; ex 3.79
+(define(solve-2nd-general f y0 dy0 dt)
+  (define y (integral (delay dy) y0 dt))
+  (define dy (integral (delay ddy) dy0 dt))
+  (define ddy (stream-map f dy y))
+  y)
+
+; modularity of functional programs and objects
+(define rand-init 0)
+(define (rand-update x) (inc x))
+
+; using assignment
+(define rand
+  (let ((x rand-init))
+    (lambda ()
+      (set! x (rand-update x))
+      x)))
+
+; using streams
+(define rand-numbers
+  (cons-stream rand-init
+               (stream-map rand-update rand-numbers)))
+
+(define (map-successive-pairs f s)
+  (cons-stream
+   (f (stream-car s) (stream-car (stream-cdr s)))
+   (map-successive-pairs f (stream-cdr (stream-cdr s)))))
+
+(define cesaro-stream
+  (map-successive-pairs (lambda (r1 r2) (= (gcd r1 r2) 1))
+                        rand-numbers))
+
+(define (monte-carlo experiment-stream passed failed)
+  (define (next passed failed)
+    (cons-stream
+     (/ passed (+ passed failed))
+     (monte-carlo
+      (stream-cdr experiment-stream) passed failed)))
+  (if (stream-car experiment-stream)
+      (next (inc passed) failed)
+      (next passed (inc failed))))
+
+(define pi
+  (stream-map (lambda (p) (sqrt (/ 6 p) 1.0))
+              (monte-carlo cesaro-stream 0 0)))
+
+; ex 3.81
+(define (rand-stream m)
+  (define (rand-nums init)
+    (define s
+      (cons-stream init (stream-map rand-update s)))
+    s)
+  
+  (cond ((eq? 'generate m) (rand-nums 0))
+        ((eq? 'reset m) (lambda (new-value) (rand-nums new-value)))
+        (else (error "message must be either generate or reset -- RAND-STREAM" m))))
+
+(display-first-terms (rand-stream 'generate) 5)
+(display-first-terms ((rand-stream 'reset) 99) 5)
+
+; ex 3.82
+(define (random-in-range low high)
+  (let ((range (- high low)))
+    (+ low (random range))))
+
+(define (estimate-integral P x1 x2 y1 y2)
+  (define random-pairs
+    (cons-stream (cons (random-in-range x1 y1)
+                       (random-in-range x2 y2))
+                 random-pairs))
+  
+  (let ((area (* (- x2 x1) (- y2 y1))))
+    (scale-stream (monte-carlo (stream-map P random-pairs) 0 0) area)))
