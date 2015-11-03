@@ -664,6 +664,21 @@
     (cons-stream (cons (random-in-range x1 y1)
                        (random-in-range x2 y2))
                  random-pairs))
-  
   (let ((area (* (- x2 x1) (- y2 y1))))
     (scale-stream (monte-carlo (stream-map P random-pairs) 0 0) area)))
+
+; a functional-programming view of time
+
+; 1. model state with local variables, model the changes of state
+; with assignment to thoses variables
+(define (make-simplified-withdraw-OOP balance)
+  (lambda (amount)
+    (set! balance (- balance amount))
+    balance))
+
+; 2. use stream to represent the time history of successive states
+(define (stream-withdraw-FP balance amount-stream)
+  (cons-stream
+   balance
+   (stream-withdraw-FP (- balance (stream-car amount-stream))
+                       (stream-cdr amount-stream))))
