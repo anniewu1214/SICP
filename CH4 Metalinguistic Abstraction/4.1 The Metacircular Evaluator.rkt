@@ -15,6 +15,29 @@
         ((begin? exp)
          (eval-sequence (begin-actions exp) env))
         ((cond? exp) (eval (cond->if exp) env))
+        ((and? exp) (eval (and->if exp) env))
+        ((or? exp) (eval (or->if exp) env))
+        ((let? exp) (eval (let->combination exp) env))
+        ((let*? exp) (eval (let*->nested-lets exp) env))
+        ((application? exp)
+         (apply (eval (operator exp) env)
+                (list-of-values (operands exp) env)))
+        (else (error "Unknown expression type -- EVAL" exp))))
+
+; ex 4.3, data directed style
+(define eval-table (make-table))
+(put 'eval 'quote (lambda (exp env) (text-of-quotation exp)))
+(put 'eval 'set! eval-assignement)
+(put 'eval 'define  eval-definition)
+(put 'eval 'if eval-if)
+(put 'eval 'lambda (lambda (exp env) (make-procedure (lambda-parameters exp) (lambda-body exp) env)))
+(put 'eval 'begin (lambda (exp env) (eval-sequence (begin-actions exp) env)))
+(put 'eval 'cond (lambda (exp env) (eval-data-directed (cond->if exp) env)))
+
+(define (eval-data-directed exp env)
+  (cond ((self-evaluating? exp) exp)
+        ((variable? exp) (lookup-variable-value exp env))
+        ((get 'eval (car exp)) ((get 'eval (car exp)) exp env))
         ((application? exp)
          (apply (eval (operator exp) env)
                 (list-of-values (operands exp) env)))
@@ -129,6 +152,7 @@
         (else (make-begin seq))))
 (define (make-begin seq) (cons 'begin seq))
 
+
 ; procedure application, (operator operand-1 ... operand-n)
 (define (application? exp) (pair? exp))
 (define (operator exp) (car exp))
@@ -137,16 +161,36 @@
 (define (first-operand ops) (car ops))
 (define (rest-operands ops) (cdr ops))
 
+; ex 4.2
+;
+; a. this modificiation will identify assignments and definitions as applications,
+; e.g. (define x 3) would be recognized as a procedure named define which takes two
+; arguments, and this will result an error.
+;
+; b. (call operator operand-1 ... operand-n)
+(define (application?-4.2 exp) (tagged-list? 'call))
+(define (operator-4.2 exp) (cadr exp))
+(define (operands-4.2 exp) (cddr exp))
+
+
 ; derived expressions
 ; (cond ((p1) actions) ... ((pn) actions) (else actions))
 (define (cond? exp) (tagged-list? exp 'cond))
-(define (cons-clauses exp) (cdr exp))
+(define (cond-clauses exp) (cdr exp))
 (define (cond-else-clause? clause)
   (eq? (cond-predicate clause) 'else))
 (define (cond-predicate clause) (car clause))
 (define (cond-actions clause) (cdr clause))
 (define (cond->if exp)
   (expand-clauses (cond-clause exp)))
+
+; ex 4.5
+; additonal syntax (<test> => <recipient>) for cond clauses
+(define (sequence->exp-2 predicate actions)
+  (if (eq? (car actions) '=>)
+      (list (cadr actions) predicate)
+      (sequence->exp actions)))
+
 (define (expand-clauses clauses)
   (if (null? clauses) ; no else clause
       'false
@@ -157,8 +201,74 @@
                 (sequence->exp (cond-actions first))
                 (error "ELSE clause isn't last -- COND->IF" clauses))
             (make-if (cond-predicate first)
-                     (sequence->exp (cond-actions first))
+                     (sequence->exp-2 (cond-predicate first)
+                                      (cond-actions first))
                      (expand-clause rest))))))
+
+; ex 4.4
+; a. (and e1 e2 ... en)
+(define (and? exp) (tagged-list? exp 'and))
+(define (or? exp) (tagged-list? exp 'or))
+
+(define (eval-and exp env)
+  (define (iter seq)
+    (cond ((null? seq) true)
+          ((true? (eval (first-exp seq) env))
+           (iter (rest-exps seq)))
+          (else false)))
+  (iter (cdr exp)))
+
+(define (eval-or exp env)
+  (define (iter seq)
+    (cond ((null? seq) false)
+          ((true? (eval (first-exp seq) env)) true)
+          (else (iter (rest-exps seq)))))
+  (iter (cdr exp)))
+
+; b. implement and/or as derived expressions
+(define (and->if exp) (expand-and-clauses (cdr exp)))
+(define (or->if exp) (expand-or-clauses (cdr exp)))
+
+(define (expand-and-clauses clauses)
+  (if (null? clauses)
+      'true
+      (make-if (car clauses)
+               (expand-and-clauses (cdr clauses))
+               'false)))
+
+(define (expand-or-clauses clauses)
+  (if (null? clauses)
+      'false
+      (make-if (car clauses)
+               'true
+               (expand-or-clauses (cdr clauses)))))
+
+; ex 4.6
+; (let ((var-1 exp-1) ... (var-n exp-n)) <body>)
+(define (let? exp) (tagged-list? exp 'let))
+(define (let-var let-arg) (map car let-arg))
+(define (let-exp let-arg) (map cdr let-arg))
+(define (let-body exp) (cddr exp))
+(define (let->combination exp)
+  (cons (make-lambda (let-var (cadr exp)) (let-body exp))
+        (let-exp (cadr exp))))
+
+; ex 4.7
+; (let* ((v1 e1) (v2 e2) (vn en)) <body>)
+; => (let ((v1 e1))
+;    (let ((v2 e2))
+;      (let ((v3 e3))
+;        <body>)))
+(define (let*? exp) (tagged-list? exp 'let*))
+(define let*-body let-body)
+(define (let*->nested-lets exp)
+  (define body (let*-body exp))
+  (define (iter args)
+    (if (null? (cdr args))
+        (list 'let args body)
+        (list 'let (list (car args)) (iter (cdr args)))))
+  (iter (cadr exp)))
+
 
 ; apply
 (define (apply procedure arguments)
