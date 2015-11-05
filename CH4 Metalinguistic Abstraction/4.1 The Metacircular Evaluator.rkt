@@ -339,7 +339,10 @@
   (define (env-loop env)
     (define (scan vars vals)
       (cond ((null? vars) (env-loop (enclosing-environment env)))
-            ((eq? var (car vars)) (car vals))
+            ((eq? var (car vars))
+             (if (eq? (car vals) '*unassigned*) ; ex 4.16
+                 (error "the procedure is not assigned" var)
+                 (car vals)))
             (else (scan (cdr vars) (cdr vals)))))
     (if (eq? env the-empty-environment)
         (error "Unbound variable" var)
@@ -531,6 +534,106 @@
 ; evaluated to ('primitive car), because every primitive objects has been attached the tag 'primitive.
 ; But Scheme's map doesn't know ('primitive car). 
 
+; ex 4.15
+; halting problem: no algorithm can always decide if a program halts
+; if (try try) halts -> (halts? try try) is true -> (try try) runs forever
+; otherwise (halts? try try) is false -> (try try) halts
+; this contractions shows that we cannot decide if (try try) halts or not.
+(define (halts? proc) "not always work")
+(define (run-forever) (run-forever))
+(define (try p)
+  (if (halts? p p)
+      (run-forever)
+      'halted))
+
+; simultaneous scoping for internal definitions
+
+; ex 4.16
+(define (scan-out-defines proc-body)
+  (define (let-part defines)
+    (map (lambda (x) (list (definition-variable x) '*unassigned*)) defines))
+  
+  (define (set-part defines)
+    (map (lambda (x) (list 'set! (definition-variable x) (definition-value x))) defines))
+  
+  (define (iter body def-acc others-acc)
+    (cond ((null? body)
+           (if (null? def-acc)
+               proc-body
+               (list (cons 'let
+                           (cons (let-part def-acc)
+                                 (append (set-part def-acc) others-acc))))))
+          ((definition? (car body))
+           (iter (cdr body) (append def-acc (list (car body))) others-acc))
+          (else (iter (cdr body) def-acc (append others-acc (list (car body)))))))
+  (iter proc-body '() '()))
+
+(display (scan-out-defines '((define u e1) (define v e2) exp1 exp2))) (newline)
+;;; ((let ((u *unassigned*) (v *unassigned*)) (set! u e1) (set! v e2) exp1 exp2))
+
+; ex 4.17
+;
+; 1. define will add the binding of variables to the first frame, it won't create a new frame,
+; the transformed program uses let, which will be firstly transformed to lambda expression
+; then to compound procedure by the interpreter, and evaluating the compound procedure will
+; create a new frame for the parameter-argument binding which extends the current env.
+;
+; 2. move internal definitions to the top of the body
+(define (move-defs-to-top proc-body)
+  (define (iter body def-acc others-acc)
+    (cond ((null? body)
+           (if (null? def-acc)
+               proc-body
+               (append def-acc others-acc)))
+          ((definition? (car body))
+           (iter (cdr body) (append def-acc (list (car body))) others-acc))
+          (else (iter (cdr body) def-acc (append others-acc (list (car body)))))))
+  (iter proc-body '() '()))
+
+(display (move-defs-to-top '((define u e1) exp1 (define v e2) exp2))) (newline)
+;; ((define u e1) (define v e2) exp1 exp2)
+
+; ex 4.18
+; 
+; 1. It won't work, because when calling (b (stream-map f y)), y is *unassigned*.
+;
+; (define (solve f y0 dt)
+;   (let ((y '*unassigned*)
+;         (dy '*unassigned*))
+;     (let ((a (integral (delay dy) y0 dt))
+;           (b (stream-map f y)))
+;       (set! y a)
+;       (set! dy b))
+;     y))
+;
+; 2. It will work.
+;
+; (define (solve f y0 dt)
+;   (let ((y '*unassigned*)
+;         (dy '*unassigned*))
+;        (set! y (integral (delay dy) y0 dt))
+;        (set! dy (stream-map f y))
+;     y))
+
+
+; ex 4.19
+; If internal definitions should be simultaneous, then Eva is correct.
+; But if it's hard to implement, we might as well report an error.
+(let ((a 1))
+  (define (f x)
+    (define b (+ a x))
+    (define a 5)
+    (+ a b))
+  (f 10))
+
+; ex 4.20
+(letrec ((fac
+          (lambda (n)
+            (if (= n 1)
+                1
+                (* n (fac (- n 1)))))))
+  (fac 10))
+
 ; TEST
 (define the-global-environment (setup-environment))
-(driver-loop)
+;(driver-loop)
