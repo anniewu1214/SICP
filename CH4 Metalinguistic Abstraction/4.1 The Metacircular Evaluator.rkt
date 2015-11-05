@@ -8,6 +8,7 @@
             (list-of-values (rest-operands exps) env))))
 
 ; ex 4.1
+; explicitely determine the order of evaluation of operands
 (define (list-of-values-left-to-right exps env)
   (if (no-operands? exps)
       '()
@@ -109,7 +110,6 @@
         (else (make-begin seq))))
 (define (make-begin seq) (cons 'begin seq))
 
-
 ; procedure application, (operator operand-1 ... operand-n)
 (define (application? exp) (pair? exp))
 (define (operator exp) (car exp))
@@ -129,17 +129,14 @@
 (define (operator-4.2 exp) (cadr exp))
 (define (operands-4.2 exp) (cddr exp))
 
-
 ; derived expressions
-; (cond ((p1) actions) ... ((pn) actions) (else actions))
+; (cond ((p-1) actions-1) ... ((p-n) actions-n) (else actions-else))
 (define (cond? exp) (tagged-list? exp 'cond))
 (define (cond-clauses exp) (cdr exp))
-(define (cond-else-clause? clause)
-  (eq? (cond-predicate clause) 'else))
+(define (cond-else-clause? clause) (eq? (cond-predicate clause) 'else))
 (define (cond-predicate clause) (car clause))
 (define (cond-actions clause) (cdr clause))
-(define (cond->if exp)
-  (expand-clauses (cond-clauses exp)))
+(define (cond->if exp) (expand-clauses (cond-clauses exp)))
 
 ; ex 4.5
 ; additonal syntax (<test> => <recipient>) for cond clauses
@@ -203,12 +200,14 @@
 ; ex 4.6
 ; (let ((var-1 exp-1) ... (var-n exp-n)) <body>)
 (define (let? exp) (tagged-list? exp 'let))
-(define (let-var let-arg) (map car let-arg))
-(define (let-exp let-arg) (map cadr let-arg))
+(define (let-vars exp) (map car (cadr exp)))
+(define (let-exps exp) (map cadr (cadr exp)))
 (define (let-body exp) (cddr exp))
 (define (let->combination exp)
-  (cons (make-lambda (let-var (cadr exp)) (let-body exp))
-        (let-exp (cadr exp))))
+  (cons (make-lambda
+         (let-vars exp)
+         (let-body exp))
+        (let-exps exp)))
 
 ; ex 4.7
 ; (let* ((v1 e1) (v2 e2) (vn en)) <body>)
@@ -219,12 +218,12 @@
 (define (let*? exp) (tagged-list? exp 'let*))
 (define let*-body let-body)
 (define (let*->nested-lets exp)
-  (define body (let*-body exp))
-  (define (iter args)
-    (if (null? (cdr args))
-        (list 'let args body)
-        (list 'let (list (car args)) (iter (cdr args)))))
-  (iter (cadr exp)))
+  (let ((body (let*-body exp)))
+    (define (iter bindings)
+      (if (null? (cdr bindings))
+          (list 'let bindings body)
+          (list 'let (list (car bindings)) (iter (cdr bindings)))))
+    (iter (cadr exp))))
 
 ; ex 4.8
 ; named let: (let <var> <bindings> <body>)
