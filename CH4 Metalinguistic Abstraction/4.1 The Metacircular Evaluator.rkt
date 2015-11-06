@@ -484,6 +484,7 @@
         ((or? exp) (eval (or->if exp) env))
         ((let? exp) (eval (let->combination exp) env))
         ((let*? exp) (eval (let*->nested-lets exp) env))
+        ((letrec? exp) (eval (letrec->let exp) env))
         ((do-while? exp) (eval (do-while->combination exp) env))
         ((do-for? exp) (eval (do-for->combination exp) env))
         ((application? exp) (i-apply (eval (operator exp) env) (list-of-values (operands exp) env)))
@@ -619,14 +620,46 @@
 ; ex 4.19
 ; If internal definitions should be simultaneous, then Eva is correct.
 ; But if it's hard to implement, we might as well report an error.
-(let ((a 1))
-  (define (f x)
-    (define b (+ a x))
-    (define a 5)
-    (+ a b))
-  (f 10))
+; (let ((a 1))
+;   (define (f x)
+;     (define b (+ a x))
+;     (define a 5)
+;     (+ a b))
+;   (f 10)) ;; error : a undefined, cannot use before initialization
+
 
 ; ex 4.20
+; a. (letrec ((var-1 exp-1) ... (var-n exp-n)) <body>)
+(define (letrec? exp) (tagged-list? exp 'letrec))
+(define letrec-bindings cadr)
+(define letrec-body let-body)
+
+(define (letrec->let exp)
+  (define (let-part exp)
+    (map (lambda (x) (list (car x) '*unassigned*)) (letrec-bindings exp)))
+  (define (set-part exp)
+    (map (lambda (x) (cons 'set! x)) (letrec-bindings exp)))
+  (cons 'let
+        (cons (let-part exp)
+              (append (set-part exp)
+                      (letrec-body exp)))))
+
+(display (letrec->let '(letrec ((v1 e1) (v2 e2)) <body>))) (newline)
+;; (let ((v1 *unassigned*) (v2 *unassigned*)) (set! v1 e1) (set! v2 e2) <body>)
+
+; b. if we use let instead of letrec, even? and odd? will be defined in different envs,
+; but they are mutually defined, so when defining even?, odd? is not defined yet.
+(define (f x)
+  (letrec ((even? (lambda (n)
+                    (if (= n 0)
+                        true
+                        (odd? (dec n)))))
+           (odd? (lambda (n)
+                   (if (= n 0)
+                       false
+                       (even? (dec n))))))
+    "rest of body of f"))
+
 (letrec ((fac
           (lambda (n)
             (if (= n 1)
@@ -634,6 +667,49 @@
                 (* n (fac (- n 1)))))))
   (fac 10))
 
+; ex 4.21
+; a.
+((lambda (n) ;;; factorial
+   ((lambda (fact)
+      (fact fact n))
+    (lambda (ft k)
+      (if (= k 1)
+          1
+          (* k (ft ft (- k 1))))))))
+
+((lambda (n) ;;; fibonacci
+   ((lambda (fib)
+      (fib fib n))
+    (lambda (fb k)
+      (cond ((= k 0) 0)
+            ((= k 1) 1)
+            (else (+ (fb fb (- k 1))
+                     (fb fb (- k 2))))))))
+ 10)
+
+; b.
+(define (even?-4.21-1 x)
+  (define (even? n)
+    (if (= n 0)
+        true
+        (odd? (dec n))))
+  (define (odd? n)
+    (if (= n 0)
+        false
+        (even? (dec n))))
+  (even? x))
+
+(define (even?-4.21-2 x)
+  ((lambda (even? odd?)
+     (even? even? odd? x))
+   (lambda (ev? od? n)
+     (if (= n 0) true (od? ev? od? (- n 1))))
+   (lambda (ev? od? n)
+     (if (= n 0) false (ev? ev? od? (- n 1))))))
+
+(even?-4.21-1 5) ; #f
+(even?-4.21-2 4) ; #t
+
 ; TEST
 (define the-global-environment (setup-environment))
-;(driver-loop)
+; (driver-loop)
