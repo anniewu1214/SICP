@@ -1,29 +1,7 @@
 #lang planet neil/sicp
 
-; ex 4.25
-; applicative order: infinite recursion
-; normal order: 5!
-(define (unless condition usual-value exceptional-value)
-  (if condition exceptional-value usual-value))
-
-(define (factorial n)
-  (unless (= n 1)
-    (* n (factorial (- n 1)))
-    1))
-
-; ex 4.26
-; if unless is a special form rather than a procedure, its args won't be evaluated eagerly
-; but unless can't be used with higher-order procedures such as map, filter, fold, etc.
-(define (unless->if exp env)
-  (define unless-condition cadr)
-  (define unless-usual caddr)
-  (define unless-exceptional cadddr)
-  (make-if (unless-condition exp)
-           (unless-exceptional exp)
-           (unless-usual exp))) 
-
 ; eval
-(define (eval-lazy exp env)
+(define (eval-customise exp env)
   (cond ((self-evaluating? exp) exp)
         ((variable? exp) (lookup-variable-value exp env))
         ((quoted? exp) (text-of-quotation exp))
@@ -32,48 +10,69 @@
         ((if? exp) (eval-if exp env))
         ((lambda? exp) (make-procedure (lambda-parameters exp) (lambda-body exp) env))
         ((begin? exp) (eval-sequence (begin-actions exp) env))
-        ((cond? exp) (eval-lazy (cond->if exp) env))
+        ((cond? exp) (eval-customise (cond->if exp) env))
         ((application? exp)
-         (apply-lazy (actual-value (operator exp) env)
-                     (operands exp)
-                     env))
-        (else (error "Unknown expression type -- EVAL-LAZY" exp))))
+         (apply-customise (actual-value (operator exp) env)
+                          (operands exp)
+                          env))
+        (else (error "Unknown expression type -- EVAL-CUSTOMISE" exp))))
 
 (define apply-in-underlying-scheme apply) ; Scheme apply
 
 ; apply
-(define (apply-lazy procedure arguments env)
+(define (apply-customise procedure arguments env)
   (cond ((primitive-procedure? procedure)
          (apply-primitive-procedure
           procedure
-          (list-of-arg-values arguments env))) ; primitive procs are strict
+          (list-of-arg-values arguments env)))
         ((compound-procedure? procedure)
          (eval-sequence
           (procedure-body procedure)
           (extend-environment
-           (procedure-parameters procedure)
-           (list-of-delayed-args arguments env) ; compound procs are non-strict
+           (procedure-parameters-customise procedure)
+           (list-of-customised-args arguments (procedure-parameter-tags procedure) env) ; changed
            (procedure-environment procedure))))
-        (else (error "Unknown procedure type -- APPLY-LAZY" procedure))))
+        (else (error "Unknown procedure type -- APPLY-CUSTOMISE" procedure))))
 
-; procedure arguments
+; representing procedures
+(define (procedure-parameters-customise procedure)
+  (map (lambda (x)
+         (if (not (pair? x))
+             x
+             (car x)))
+       (cadr procedure)))
+
+(define (procedure-parameter-tags procedure)
+  (map (lambda (x)
+         (if (not (pair? x))
+             'eager
+             (cadr x)))
+       (cadr procedure)))
+
 (define (list-of-arg-values exps env)
   (if (no-operands? exps)
       '()
       (cons (actual-value (first-operand exps) env)
             (list-of-arg-values (rest-operands exps) env))))
 
-(define (list-of-delayed-args exps env)
+(define (list-of-customised-args exps types env)
+  (define (process-arg arg type)
+    (cond ((eq? type 'lazy-memo) (delay-it 'thunk arg env))
+          ((eq? type 'lazy) (delay-it 'no-memo-thunk arg env))
+          ((eq? type 'eager) (actual-value arg env))
+          (else (error "Unknow parameter type " type))))
   (if (no-operands? exps)
       '()
-      (cons (delay-it (first-operand exps) env)
-            (list-of-delayed-args (rest-operands exps) env))))
+      (cons (process-arg (first-operand exps) (car types))
+            (list-of-customised-args (rest-operands exps) (cdr types) env))))
 
 ; representing thunks
-(define (actual-value exp env)
-  (force-it (eval-lazy exp env)))
+(define (lazy-memo? arg) (and (pair? arg) (eq? (cadr arg) 'lazy-memo)))
+(define (lazy? arg) (and (pair? arg) (eq? (cadr arg) 'lazy)))
 
-(define (delay-it exp env) (list 'thunk exp env))
+(define (actual-value exp env)
+  (force-it (eval-customise exp env)))
+
 (define (thunk? obj) (tagged-list? obj 'thunk))
 (define (thunk-exp thunk) (cadr thunk))
 (define (thunk-env thunk) (caddr thunk))
@@ -81,38 +80,43 @@
 (define (evaluated-thunk? obj) (tagged-list? obj 'evaluated-thunk))
 (define (thunk-value evaluated-thunk) (cadr evaluated-thunk))
 
+(define (delay-it type exp env) (list type exp env))
+(define (no-memo-thunk? obj) (tagged-list? obj 'no-memo-thunk))
+
 (define (force-it obj)
   (cond ((thunk? obj)
          (let ((result (actual-value (thunk-exp obj)
                                      (thunk-env obj))))
            (set-car! obj 'evaluated-thunk)
-           (set-car! (cdr obj) result)  ; replace exp with its value
-           (set-cdr! (cdr obj) '())     ; forget unneeded environment
+           (set-car! (cdr obj) result)
+           (set-cdr! (cdr obj) '())
            result))
+        ((no-memo-thunk? obj)
+         (actual-value (thunk-exp obj) (thunk-env obj))) ; don't memoize
         ((evaluated-thunk? obj) (thunk-value obj))
         (else obj)))
 
 ; conditionals
 (define (eval-if exp env)
   (if (true? (actual-value (if-predicate exp) env))
-      (eval-lazy (if-consequent exp) env)
-      (eval-lazy (if-alternative exp) env)))
+      (eval-customise (if-consequent exp) env)
+      (eval-customise (if-alternative exp) env)))
 
 ; sequences
 (define (eval-sequence exps env)
-  (cond ((last-exp? exps) (eval-lazy (first-exp exps) env))
-        (else (eval-lazy (first-exp exps) env)
+  (cond ((last-exp? exps) (eval-customise (first-exp exps) env))
+        (else (actual-value (first-exp exps) env)
               (eval-sequence (rest-exps exps) env))))
 
 ; assignments and definitions
 (define (eval-assignment exp env)
   (set-variable-value! (assignment-variable exp)
-                       (eval-lazy (assignment-value exp) env)
+                       (eval-customise (assignment-value exp) env)
                        env))
 
 (define (eval-definition exp env)
   (define-variable! (definition-variable exp)
-    (eval-lazy (definition-value exp) env)
+    (eval-customise (definition-value exp) env)
     env))
 
 ; representing expressions
@@ -281,8 +285,8 @@
     (scan (frame-variables frame) (frame-values frame))))
 
 ; REPL (read-eval-print loop)
-(define input-prompt ";;; L-Eval input:")
-(define output-prompt ";;; L-Eval value:")
+(define input-prompt ";;; Customisable-Eval input:")
+(define output-prompt ";;; Customisable-Eval value:")
 
 (define (driver-loop)
   (prompt-for-input input-prompt)
@@ -344,6 +348,7 @@
         (list 'equal? equal?)
         (list 'symbol? symbol?)
         (list 'display display)
+        (list 'newline newline)
         (list 'list list)
         (list 'cons cons) ;;; and more primitives
         (list 'null? null?)))
@@ -358,133 +363,14 @@
 
 (define the-global-environment (setup-environment))
 (driver-loop)
-; (define (try a b) (if (= a 0) a b))
-; (try 0 (/ 1 0))
 
-; ex 4.27
-; interactions between lazy eval and side effects can be very confusing
-(define count 0)
-(define (id x) (set! count (+ count 1)) x)
-(define w (id (id 10))) ; (eval-lazy (id (id 10))), the outer id is called
-;; count => 1, because (id 10) is delayed
-;; w  => 10 
-;; count => 2 (actual-value w), (id 10) is evaluated
-
-; ex 4.28
-(define (f g x) (g x))
-(f id 10)
-; id is delayed when passed to f, so (f id 10) -> (delay-it (id 10)), we need the
-; actual procedure of the delayed proc to continue
-
-; ex 4.29
-; with memoization, the first time a thunk is forced, it stores the computed value
-; subsequent forcings simply return the stored value without repeating the computation
-(define (fib n)
-  (cond ((= n 0) 0)
-        ((= n 1) 1)
-        (+ (fib (- n 1))
-           (fib (- n 2)))))
-
-(define (square x) (* x x))
-(square (id 10)) ; (id 10) is delayed when passed as argument
-count
-; with memoization the value of (id 10) will be stored, so it's called only 1 time
-; without memoization, (id 10) will be called twice, so count is 2
-
-; ex 4.30
-; a. display is a primitive and it will force the evaluation of (car items)
-(define (p1 x)
-  (set! x (cons x '(2)))
-  x)
-(define (p2 x)
-  (define (p e)
-    e
-    x)
-  (p (set! x (cons x '(2)))))
-
-(p1 1) ; (1 2)
-(p2 1) ; 1, because (set! x (cons x '(2))) is delayed
-
-; with the following modification, each exp in a sequence will be forced for evaluation
-(define (eval-sequence-2 exps env)
-  (cond ((last-exp? exps) (eval (first-exp exps) env))
-        (else (actual-value (first-exp exps) env)
-              (eval-sequence-2 (rest-exps exps) env))))
-
-; c. force-it will return the original object if it's not a thunk
-; d. we should force the all expressions in the sequence except the final one, because
-; that's the correct behavior of begin: evaluate all expressions, returns the last one
-
-; ex 4.31
-; upward-compatible extension of lazy evaluation
-(define (list-of-customised-args exps types env)
-  (define (process-arg arg type)
-    (cond ((eq? type 'lazy-memo) (delay-it 'thunk arg env))
-          ((eq? type 'lazy) (delay-it 'no-memo-thunk arg env))
-          ((eq? type 'eager) (actual-value arg env))
-          (else (error "Unknow parameter type " type))))
-  (if (no-operands? exps)
-      '()
-      (cons (process-arg (first-operand exps) (car types))
-            (list-of-customised-args (rest-operands exps) (cdr types) env))))
-
-(define (procedure-parameters-customise procedure)
-  (map (lambda (x)
-         (if (not (pair? x))
-             x
-             (car x)))
-       (cadr procedure)))
-
-(define (procedure-parameter-tags procedure)
-  (map (lambda (x)
-         (if (not (pair? x))
-             'eager
-             (cadr x)))
-       (cadr procedure)))
-
-(define (delay-it-customise type exp env) (list type exp env))
-(define (no-memo-thunk? obj) (tagged-list? obj 'no-memo-thunk))
-
-(define (force-it-customise obj)
-  (cond ((thunk? obj)
-         (let ((result (actual-value (thunk-exp obj)
-                                     (thunk-env obj))))
-           (set-car! obj 'evaluated-thunk)
-           (set-car! (cdr obj) result)
-           (set-cdr! (cdr obj) '())
-           result))
-        ((no-memo-thunk? obj)
-         (actual-value (thunk-exp obj) (thunk-env obj))) ; don't memoize
-        ((evaluated-thunk? obj) (thunk-value obj))
-        (else obj)))
-
-(define (eval-customise exp env)
-  (cond ((self-evaluating? exp) exp)
-        ((variable? exp) (lookup-variable-value exp env))
-        ((quoted? exp) (text-of-quotation exp))
-        ((assignment? exp) (eval-assignment exp env))
-        ((definition? exp) (eval-definition exp env))
-        ((if? exp) (eval-if exp env))
-        ((lambda? exp) (make-procedure (lambda-parameters exp) (lambda-body exp) env))
-        ((begin? exp) (eval-sequence (begin-actions exp) env))
-        ((cond? exp) (eval-customise (cond->if exp) env))
-        ((application? exp)
-         (apply-customise (actual-value (operator exp) env)
-                          (operands exp)
-                          env))
-        (else (error "Unknown expression type -- EVAL-CUSTOMISE" exp))))
-
-; apply
-(define (apply-customise procedure arguments env)
-  (cond ((primitive-procedure? procedure)
-         (apply-primitive-procedure
-          procedure
-          (list-of-arg-values arguments env)))
-        ((compound-procedure? procedure)
-         (eval-sequence
-          (procedure-body procedure)
-          (extend-environment
-           (procedure-parameters-customise procedure)
-           (list-of-customised-args arguments (procedure-parameter-tags procedure) env) ; changed
-           (procedure-environment procedure))))
-        (else (error "Unknown procedure type -- APPLY-CUSTOMISE" procedure))))
+; TEST IN REPL
+; (define count 0)
+; (define (id x) (set! count (+ count 1)) x)
+; (define (square x) (* x x))
+; (define (square-lazy (x lazy)) (* x x))
+; (define (square-lazy-memo (x lazy-memo)) (* x x))
+; (square-lazy (id 10))
+; count ; output: 2
+; (square-lazy-memo (id 10))
+; count ; output: 3
