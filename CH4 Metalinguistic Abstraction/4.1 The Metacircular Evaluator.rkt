@@ -432,6 +432,25 @@
 (define primitive-procedures
   (list (list 'car car)
         (list 'cdr cdr)
+        (list 'cadr cadr)
+        (list 'caddr caddr)
+        (list 'cddr cddr)
+        (list 'cdddr cdddr)
+        (list 'caar caar)
+        (list '+ +)
+        (list '= =)
+        (list '- -)
+        (list '* *)
+        (list '/ /)
+        (list '< <)
+        (list '> >)
+        (list '>= >=)
+        (list '<= <=)
+        (list 'abs abs)
+        (list 'append append)
+        (list 'eq? eq?)
+        (list 'equal? equal?)
+        (list 'symbol? symbol?)
         (list 'cons cons) ;;; and more primitives
         (list 'null? null?)))
 
@@ -712,7 +731,7 @@
 
 ; TEST
 (define the-global-environment (setup-environment))
-; (driver-loop)
+(driver-loop)
 
 ; separating syntactic analysis from execution
 (define (better-eval exp env) ((analyze exp) env))

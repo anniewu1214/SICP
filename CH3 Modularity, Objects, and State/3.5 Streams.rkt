@@ -6,6 +6,10 @@
     ((delay proc)
      (memo-proc (lambda () proc)))))
 
+; (delay exp) <=> (memo-proc (lambda () exp))
+; when an expression is delayed, memo-proc creates a closure containing 2 local variables
+; already-run? and result, the first time the expression is forced, we evaluate its value
+; and memoize it in result, so subsequent forcings will return the memoized result.
 (define (memo-proc proc)
   (let ((already-run? #f) (result #f))
     (lambda ()
