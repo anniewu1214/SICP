@@ -19,13 +19,13 @@ This repository records my learning of SICP(*Structure and Interpretation of Com
   1. Assignment and Local State
   2. The Environment Model of Evaluation
   3. Modeling with Mutable Data
-  4. Concurrency: Time Is of the Essence
+  4. Concurrency
   5. Streams
 
 4. Metalinguistic Abstraction
   1.  The Metacircular Evaluator
-  2.  Variations on a Scheme - Lazy Evaluation
-  3.  Variations on a Scheme - Nondeterministic Computing
+  2.  Lazy Evaluation
+  3.  Nondeterministic Computing
   4.  Logic Programming
 
 5. Computing with Register Machines
