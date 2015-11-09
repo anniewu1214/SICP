@@ -26,7 +26,7 @@
 (define (eval-lazy exp env)
   (cond ((self-evaluating? exp) exp)
         ((variable? exp) (lookup-variable-value exp env))
-        ((quoted? exp) (text-of-quotation exp))
+        ((quoted? exp) (text-of-quotation exp env))
         ((assignment? exp) (eval-assignment exp env))
         ((definition? exp) (eval-definition exp env))
         ((if? exp) (eval-if exp env))
@@ -125,7 +125,20 @@
 
 ; (quote <text-of-quotation>)
 (define (quoted? exp) (tagged-list? exp 'quote))
-(define (text-of-quotation exp) (cadr exp))
+
+; ex 4.33
+; (define (text-of-quotation exp) (cadr exp))
+(define (text-of-quotation exp env)
+  (let ((text (cadr exp)))
+    (if (pair? text)
+        (eval-lazy (make-list text) env)
+        text)))
+
+(define (make-list exp)
+  (if (null? exp)
+      '()
+      (list 'cons (list 'quote (car exp)) (make-list (cdr exp)))))
+
 (define (tagged-list? exp tag)
   (if (pair? exp)
       (eq? (car exp) tag)
@@ -435,7 +448,7 @@ count
              (car x)))
        (cadr procedure)))
 
-(define (procedure-parameter-tags procedure)
+(define (procedure-parameter-types procedure)
   (map (lambda (x)
          (if (not (pair? x))
              'eager
@@ -485,6 +498,49 @@ count
           (procedure-body procedure)
           (extend-environment
            (procedure-parameters-customise procedure)
-           (list-of-customised-args arguments (procedure-parameter-tags procedure) env) ; changed
+           (list-of-customised-args arguments (procedure-parameter-types procedure) env) ; changed
            (procedure-environment procedure))))
-        (else (error "Unknown procedure type -- APPLY-CUSTOMISE" procedure))))
+        (else
+         (error "Unknown procedure type -- APPLY-CUSTOMISE" procedure))))
+
+; streams as lazy lists
+
+; represents pairs as procedures
+; define in REPL: 
+(define (cons x y) (lambda (m) (m x y)))
+(define (car z) (z (lambda (p q) p)))
+(define (cdr z) (z (lambda (p q) q)))
+
+(define (list-ref items n)
+  (if (= n 0)
+      (car items)
+      (list-ref (cdr items) (- n 1))))
+
+(define (map proc items)
+  (if (null? items)
+      '()
+      (cons (proc (car items))
+            (map proc (cdr items)))))
+
+(define (scale-list items factor)
+  (map (lambda (x) (* x factor)) items))
+
+(define (add-lists l1 l2)
+  (cond ((null? l1) l2)
+        ((null? l2) l1)
+        (else (cons (+ (car l1) (car l2))
+                    (add-lists (cdr l1) (cdr l2))))))
+
+; ex 4.32
+; the car and cdr of a list is delayed, this permits us to create delayed versions of more general
+; kinds of list structures such as lazy trees, not just sequences. Furthermore, all arguments to
+; procedures are delayed uniformly, so we don't need to sprinkle our programs with explicat delay
+; operations, such as the integral example, ex 3.77, and ex 3.79
+
+; *ex 4.34, TODO
+(define scheme-cons cons)
+(define scheme-car car)
+(define scheme-cdr cdr)
+(define (cons x y) (scheme-cons 'cons (lambda (m) (m x y))))
+(define (car z) ((scheme-cdr z) (lambda (p q) p)))
+(define (cdr z) ((scheme-cdr z) (lambda (p q) q)))
