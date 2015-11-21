@@ -1,54 +1,54 @@
 #lang planet neil/sicp
 
 ;; a sample data base
-(address (Bitdiddle Ben) (Slumerville (Ridge Road) 10))
-(job (Bitdiddle Ben) (computer wizard))
-(salary (Bitdiddle Ben) 60000)
+(assert! (address (Bitdiddle Ben) (Slumerville (Ridge Road) 10)))
+(assert! (job (Bitdiddle Ben) (computer wizard)))
+(assert! (salary (Bitdiddle Ben) 60000))
 
-(address (Hacker Alyssa P) (Cambridge (Mass Ave) 78))
-(job (Hacker Alyssa P) (computer programmer))
-(salary (Hacker Alyssa P) 40000)
-(supervisor (Hacker Alyssa P) (Bitdiddle Ben))
+(assert! (address (Hacker Alyssa P) (Cambridge (Mass Ave) 78)))
+(assert! (job (Hacker Alyssa P) (computer programmer)))
+(assert! (salary (Hacker Alyssa P) 40000))
+(assert! (supervisor (Hacker Alyssa P) (Bitdiddle Ben)))
 
-(address (Fect Cy D) (Cambridge (Ames Street) 3))
-(job (Fect Cy D) (computer programmer))
-(salary (Fect Cy D) 35000)
-(supervisor (Fect Cy D) (Bitdiddle Ben))
+(assert! (address (Fect Cy D) (Cambridge (Ames Street) 3)))
+(assert! (job (Fect Cy D) (computer programmer)))
+(assert! (salary (Fect Cy D) 35000))
+(assert! (supervisor (Fect Cy D) (Bitdiddle Ben)))
 
-(address (Tweakit Lem E) (Boston (Bay State Road) 22))
-(job (Tweakit Lem E) (computer technician))
-(salary (Tweakit Lem E) 25000)
-(supervisor (Tweakit Lem E) (Bitdiddle Ben))
+(assert! (address (Tweakit Lem E) (Boston (Bay State Road) 22)))
+(assert! (job (Tweakit Lem E) (computer technician)))
+(assert! (salary (Tweakit Lem E) 25000))
+(assert! (supervisor (Tweakit Lem E) (Bitdiddle Ben)))
 
-(address (Reasoner Louis) (Slumerville (Pine Tree Road) 80))
-(job (Reasoner Louis) (computer programmer trainee))
-(salary (Reasoner Louis) 30000)
-(supervisor (Reasoner Louis) (Hacker Alyssa P))
+(assert! (address (Reasoner Louis) (Slumerville (Pine Tree Road) 80)))
+(assert! (job (Reasoner Louis) (computer programmer trainee)))
+(assert! (salary (Reasoner Louis) 30000))
+(assert! (supervisor (Reasoner Louis) (Hacker Alyssa P)))
 
-(supervisor (Bitdiddle Ben) (Warbucks Oliver))
-(address (Warbucks Oliver) (Swellesley (Top Heap Road)))
-(job (Warbucks Oliver) (administration big wheel))
-(salary (Warbucks Oliver) 150000)
+(assert! (supervisor (Bitdiddle Ben) (Warbucks Oliver)))
+(assert! (address (Warbucks Oliver) (Swellesley (Top Heap Road))))
+(assert! (job (Warbucks Oliver) (administration big wheel)))
+(assert! (salary (Warbucks Oliver) 150000))
 
-(address (Scrooge Eben) (Weston (Shady Lane) 10))
-(job (Scrooge Eben) (accounting chief accountant))
-(salary (Scrooge Eben) 75000)
-(supervisor (Scrooge Eben) (Warbucks Oliver))
+(assert! (address (Scrooge Eben) (Weston (Shady Lane) 10)))
+(assert! (job (Scrooge Eben) (accounting chief accountant)))
+(assert! (salary (Scrooge Eben) 75000))
+(assert! (supervisor (Scrooge Eben) (Warbucks Oliver)))
 
-(address (Cratchet Robert) (Allston (N Harvard Street) 16))
-(job (Cratchet Robert) (accounting scrivener))
-(salary (Cratchet Robert) 18000)
-(supervisor (Cratchet Robert) (Scrooge Eben))
+(assert! (address (Cratchet Robert) (Allston (N Harvard Street) 16)))
+(assert! (job (Cratchet Robert) (accounting scrivener)))
+(assert! (salary (Cratchet Robert) 18000))
+(assert! (supervisor (Cratchet Robert) (Scrooge Eben)))
 
-(address (Aull DeWitt) (Slumerville (Onion Square) 5))
-(job (Aull DeWitt) (administration secretary))
-(salary (Aull DeWitt) 25000)
-(supervisor (Aull DeWitt) (Warbucks Oliver))
+(assert! (address (Aull DeWitt) (Slumerville (Onion Square) 5)))
+(assert! (job (Aull DeWitt) (administration secretary)))
+(assert! (salary (Aull DeWitt) 25000))
+(assert! (supervisor (Aull DeWitt) (Warbucks Oliver)))
 
-(can-do-job (computer wizard) (computer programmer))
-(can-do-job (computer wizard) (computer technician))
-(can-do-job (computer programmer) (computer programmer trainee))
-(can-do-job (administration secretary) (administration big wheel))
+(assert! (can-do-job (computer wizard) (computer programmer)))
+(assert! (can-do-job (computer wizard) (computer technician)))
+(assert! (can-do-job (computer programmer) (computer programmer trainee)))
+(assert! (can-do-job (administration secretary) (administration big wheel)))
 
 ;; simple queries (primitives)
 (job ?x (computer programmer))
@@ -88,31 +88,31 @@
      (job ?supervisor ?job))
 
 ;; rules (means of abstraction)
-(rule (lives-near ?person-1 ?person-2)
-      (and (address ?person-1 (?town . ?rest-1))
-           (address ?person-2 (?town . ?rest-2))
-           (not (same ?person-1 ?person-2))))
+(assert! (rule (lives-near ?person-1 ?person-2)
+               (and (address ?person-1 (?town . ?rest-1))
+                    (address ?person-2 (?town . ?rest-2))
+                    (not (same ?person-1 ?person-2)))))
 
-(rule (same ?x ?x))
+(assert! (rule (same ?x ?x)))
 
-(rule (wheel ?person)
-      (and (supervisor ?middle-manager ?person)
-           (supervisor ?x ?middle-manager)))
+(assert! (rule (wheel ?person)
+               (and (supervisor ?middle-manager ?person)
+                    (supervisor ?x ?middle-manager))))
 
-(and (job ?x (computer programmer))
-     (lives-near ?x (Bitdiddle Ben)))
+(assert! (and (job ?x (computer programmer))
+              (lives-near ?x (Bitdiddle Ben))))
 
-(rule (outranked-by ?staff-person ?boss)
-      (or (supervisor ?staff-person ?boss)
-          (and (supervisor ?staff-person ?middle-manager)
-               (supervisor ?middle-manager ?boss))))
+(assert!(rule (outranked-by ?staff-person ?boss)
+              (or (supervisor ?staff-person ?boss)
+                  (and (supervisor ?staff-person ?middle-manager)
+                       (supervisor ?middle-manager ?boss)))))
 
 ; ex 4.57
-(rule (replace ?person-1 ?person-2)
-      (and (or (and (job ?person-1 ?job)
-                    (job ?person-2 ?job))
-               (can-do-job ?person-1 ?person-2))
-           (not (same ?person-1 ?person-2))))
+(assert! (rule (replace ?person-1 ?person-2)
+               (and (or (and (job ?person-1 ?job)
+                             (job ?person-2 ?job))
+                        (can-do-job ?person-1 ?person-2))
+                    (not (same ?person-1 ?person-2)))))
 
 (replace ?person (Fect Cy D))
 
@@ -122,31 +122,113 @@
      (lisp-value < ?person-1 ?person-2))
 
 ; ex 4.58
-(rule (big-shot ?person)
-      (and (job ?person (?division . ?rest))
-           (or (not (supervisor ?person ?boss))
-               (and (supervisor ?person ?boss)
-                    (not (job ?boss (?division . ?rest-2)))))))
+(assert! (rule (big-shot ?person)
+               (and (job ?person (?division . ?rest))
+                    (or (not (supervisor ?person ?boss))
+                        (and (supervisor ?person ?boss)
+                             (not (job ?boss (?division . ?rest-2))))))))
 
 ; ex 4.59
-(meeting accounting (Monday 9am))
-(meeting administration (Monday 10am))
-(meeting computer (Wednesday 3pm))
-(meeting administration (Friday 1pm))
-(meeting whole-company (Wednesday 4pm))
+(assert! (meeting accounting (Monday 9am)))
+(assert! (meeting administration (Monday 10am)))
+(assert! (meeting computer (Wednesday 3pm)))
+(assert! (meeting administration (Friday 1pm)))
+(assert! (meeting whole-company (Wednesday 4pm)))
 
-(meeting ?division (Friday ?time))
+(assert! (meeting ?division (Friday ?time)))
 
-(rule (meeting-time ?person ?day-and-time)
-      (and (job ?person (?division . ?rest))
-           (or (meeting ?division ?day-and-time)
-               (meeting whole-company ?day-and-time))))
+(assert! (rule (meeting-time ?person ?day-and-time)
+               (and (job ?person (?division . ?rest))
+                    (or (meeting ?division ?day-and-time)
+                        (meeting whole-company ?day-and-time)))))
 
 (meeting-time (Hacker Alyssa P) (Wednesday ?time))
 
 ; ex 4.60
-(rule (lives-near-better ?person-1 ?person-2)
-      (and (list-value string>? ?person-1 ?person-2)
-           (address ?person-1 (?town . ?rest-1))
-           (address ?person-2 (?town . ?rest-2))
-           (not (same ?person-1 ?person-2))))
+(assert! (rule (lives-near-better ?person-1 ?person-2)
+               (and (list-value string>? ?person-1 ?person-2)
+                    (address ?person-1 (?town . ?rest-1))
+                    (address ?person-2 (?town . ?rest-2))
+                    (not (same ?person-1 ?person-2)))))
+
+;; logic as programs
+(assert! (rule (append-to-form () ?y ?y)))
+(assert! (rule (append-to-form (?u . ?v) ?y (?u . ?z))
+               (append-to-form ?v ?y ?z)))
+
+(append-to-form (a b) (c d) ?z)
+(append-to-form (a b) ?y (a b c d))
+(append-to-form ?x ?y (a b c d))
+
+; ex 4.61
+(assert! (rule (?x next-to ?y in (?x ?y . ?u))))
+(assert! (rule (?x next-to ?y in (?v . ?z))
+               (?x next-to ?y in ?z)))
+
+(?x next-to ?y in (1 (2 3) 4))
+; 1 next-to (2 3)
+; (2 3) next-to 4
+
+(?x next-to 1 in (2 1 3 1))
+; 2 next-to 1
+; 3 next-to 1
+
+; ex 4.62
+(assert! (rule (last-pair (?x) (?x))))
+(assert! (rule (last-pair (?u . ?v) (?x))
+               (last-pair (?v) (?x))))
+
+(last-pair (3) ?x)
+(last-pair (1 2 3) ?x)
+(last-pair (2 ?x) (3))
+; (last-pair ?x (3)) ; can't find dude
+
+; ex 4.63
+(assert! (son Adam Cain))
+(assert! (son Cain Enoch))
+(assert! (son Enoch Irad))
+(assert! (son Irad Mehujael))
+(assert! (son Mehujael Methushael))
+(assert! (son Methushael Lamech))
+(assert! (wife Lamech Ada))
+(assert! (son Ada Jabal))
+(assert! (son Ada Jubal))
+
+(assert! (rule (grandson ?S ?G)
+               (and (son ?S ?f)
+                    (son ?f ?G))))
+
+(assert! (rule (son ?S ?M)
+               (and (wife ?W ?M)
+                    (sons ?S ?W))))
+
+; ex 4.64
+; inifite loop caused by (bad-outranked-by ?middle-manager ?boss)
+
+; ex 4.65
+; because (Warbucks Olivier) supervises 4 middle-managers
+
+; ex 4.66
+; the prb is queries like wheel may produce duplicate values, and
+; the accumulated value will be biased in this case. Solution: filter
+; duplicate frames in the stream before passing it to a mapping function
+
+; ex 4.68
+(assert! (rule (reverse () ())))
+
+(assert! (rule (reverse (?x . ?rest) ?y)
+               (and (reverse ?rest ?z)
+                    (append-to-form ?z (?x) ?y))))
+
+; ex 4.69
+(assert! (rule (end-in-grandson (grandson))))
+(assert!(rule (end-in-grandson (?x . ?rest))
+              (end-in-grandson ?rest)))
+
+(assert! (rule ((grandson) ?x ?y)
+               (grandson ?x ?y)))
+
+(assert! (rule ((great . ?rel) ?x ?y)
+               (and (end-in-grandson ?rel)
+                    (son ?x ?z)
+                    (?rel ?z ?y))))
