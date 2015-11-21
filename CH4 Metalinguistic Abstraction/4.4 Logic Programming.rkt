@@ -232,3 +232,6 @@
                (and (end-in-grandson ?rel)
                     (son ?x ?z)
                     (?rel ?z ?y))))
+
+;; Implementing the Query System
+;; TODO
