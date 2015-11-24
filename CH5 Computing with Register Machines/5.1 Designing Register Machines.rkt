@@ -194,3 +194,54 @@
    (assign val (reg n))               ; base case:  Fib(n) = n
    (goto (reg continue))
  fib-done)
+
+; GCD machine
+(define gcd-machine
+  (make-machine
+   '(a b t)
+   (list (list 'rem remainder) (list '= =))
+   '(test-b
+       (test (op =) (reg b) (const 0))
+       (branch (label gcd-done))
+       (assign t (op rem) (reg a) (reg b))
+       (assign a (reg b))
+       (assign b (reg t))
+       (goto (label test-b))
+     gcd-done)))
+
+; ex 5.7
+; recursive exponentiation machine
+(define exp-rec-machine
+  '(b n continue)
+  (list (list '= =) (list '- -) (list '* *))
+  '(
+      (assign continue (label exp-done))
+    exp-loop
+      (test (op =) (reg n) (const 0))
+      (branch (label base-case))
+      (save continue)
+      (assign n (op -) (reg n) (const 1))
+      (assign continue (label after-exp))
+      (goto (label exp-loop))
+    after-exp
+      (restore continue)
+      (assign val (op *) (reg b) (reg val))
+      (goto (reg continue))
+    base-case
+      (assign val (const 1))
+      (goto (reg continue))
+    exp-done))
+
+; iterative exponentiation machine
+(define exp-it-machine
+  '(b n product)
+  (list ('= =) ('- -))
+  '(
+    assign product (const 1))
+   exp-loop
+    (test (op =) (reg n) (const 0))
+    (branch (label exp-done))
+    (assign product (op *) (reg b) (reg product))
+    (assign n (op -) (reg n) (const 1))
+    (goto (label exp-loop))
+   exp-done)
