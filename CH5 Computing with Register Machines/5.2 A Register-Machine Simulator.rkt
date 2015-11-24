@@ -1,0 +1,151 @@
+#lang planet neil/sicp
+
+; the machine model
+(define (make-machine register-names ops controller-text)
+  (let ((machine (make-new-machine)))
+    (for-each (lambda (register-name)
+                ((machine 'allocate-register) register-name))
+              register-names)
+    ((machine 'install-operations) ops)
+    ((machine 'install-instruction-sequence)
+     (assemble controller-text machine))
+    machine))
+
+; registers
+(define (make-register name)
+  (let ((contents '*unassigned*))
+    (define (dispatch message)
+      (cond ((eq? message 'get) contents)
+            ((eq? message 'set)
+             (lambda (value) (set! contents value)))
+            (else (error "Unknown request -- REGISTER" message))))
+    dispatch))
+
+(define (get-contents register) (register 'get))
+(define (set-contents! register value) ((register 'set) value))
+
+; stack
+(define (make-stack)
+  (let ((s '()))
+    (define (push x)
+      (set! s (cons x s)))
+    (define (pop)
+      (if (null? s)
+          (error "Empty stack -- POP")
+          (let ((top (car s)))
+            (set! s (cdr s))
+            top)))
+    (define (initialize)
+      (set! s '())
+      'done)
+    (define (dispatch message)
+      (cond ((eq? message 'push) push)
+            ((eq? message 'pop) pop)
+            ((eq? message 'initialize) initialize)
+            (else (error "Unknown request -- STACK" message))))
+    dispatch))
+
+(define (pop stack) (stack 'pop))
+(define (push stack value) ((stack 'push) value))
+(define (initialize stack) (stack 'initialize))
+
+; the basic machine
+(define (make-new-machine)
+  (let ((pc (make-register 'pc))
+        (flag (make-register 'flag))
+        (stack (make-stack))
+        (the-instruction-sequence '()))
+    (let ((the-ops
+           (list (list 'initialize-stack
+                       (lambda () (stack 'initialize)))))
+          (register-table
+           (list (list 'pc pc) (list 'flag flag))))
+      (define (allocate-register name)
+        (if (assoc name register-table)
+            (error "Multiply defined register: " name)
+            (set! register-table
+                  (cons (list name (make-register name))
+                        register-table)))
+        'register-allocated)
+      (define (lookup-register name)
+        (let ((val (assoc name register-table)))
+          (if val
+              (cadr val)
+              (error "Unknown register: " name))))
+      (define (execute)
+        (let ((insts (get-contents pc)))
+          (if (null? insts)
+              'done
+              (begin ((instruction-execution-procedure (car insts)))
+                     (execute)))))
+      (define (dispatch message)
+        (cond ((eq? message 'start)
+               (set-contents! pc the-instruction-sequence)
+               (execute))
+              ((eq? message 'install-instruction-sequence)
+               (lambda (seq) (set! the-instruction-sequence seq)))
+              ((eq? message 'allocate-register) allocate-register)
+              ((eq? message 'get-register) (lookup-register))
+              ((eq? message 'install-operations)
+               (lambda (ops) (set! the-ops (append the-ops ops))))
+              ((eq? message 'stack) stack)
+              ((eq? message 'operations) the-ops)
+              (else (error "Unknown request -- MACHINE" message))))
+      dispatch)))
+
+(define (get-register machine reg-name) ((machine 'get-register) reg-name))
+(define (start machine) (machine 'start))
+(define (get-register-contents machine register-name)
+  (get-contents (get-register machine register-name)))
+(define (set-register-contents! machine register-name)
+  (set-contents! (get-register machine register-name) value))
+
+; the assembler
+(define (assemble controller-text machine)
+  (let ((result (extract-labels controller-text)))
+    (let ((insts (car result))
+          (labels (cdr result)))
+      (update-insts! insts labels machine)
+      insts)))
+
+(define (extract-labels text)
+  (if (null? text)
+      (cons '() '())
+      (let ((result (extract-labels (cdr text))))
+        (let ((insts (car result))
+              (labels (cdr result)))
+          (let ((next-inst (car text)))
+            (if (symbol? next-inst)
+                ;; ex 5.8
+                (if (assoc next-inst insts) ; error if duplicate labels
+                    (error "duplicate labels" next-inst)
+                    (cons insts
+                          (cons (make-label-entry next-inst insts) labels)))
+                (cons (cons (make-instruction next-inst) insts)
+                      labels)))))))
+
+(define (make-instruction text) (cons text '()))
+(define (instruction-text inst) (car inst))
+(define (instruction-execution-proc inst) (cdr inst))
+(define (set-instruction-execution-proc! inst proc) (set-cdr! inst proc))
+
+(define (make-label-entry label-name insts) (cons label-name insts))
+(define (lookup-label labels label-name)
+  (let ((val (assoc label-name labels)))
+    (if val
+        (cdr val)
+        (error "Undefined label -- ASSEMBLE" label-name))))
+
+(define (updat-insts! insts labels machine)
+  (let ((pc (get-register machine 'pc))
+        (flag (get-register machine 'flag))
+        (stack (machine 'stack))
+        (ops (machine 'operations)))
+    (for-each
+     (lambda (inst)
+       (set-instruction-execution-proc!
+        inst
+        (make-execution-procedure
+         (instruction-text inst) labels machine
+         pc flag stack ops)))
+     insts)))
