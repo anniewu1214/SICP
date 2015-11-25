@@ -195,14 +195,14 @@
 (define iterative-exp-machine
   (make-machine
    (list (list '= =) (list '- -) (list '* *))
- '((assign product (const 1))
- exp-loop
- (test (op =) (reg n) (const 0))
- (branch (label exp-done))
- (assign product (op *) (reg b) (reg product))
- (assign n (op -) (reg n) (const 1))
- (goto (label exp-loop))
- exp-done)))
+   '((assign product (const 1))
+     exp-loop
+     (test (op =) (reg n) (const 0))
+     (branch (label exp-done))
+     (assign product (op *) (reg b) (reg product))
+     (assign n (op -) (reg n) (const 1))
+     (goto (label exp-loop))
+     exp-done)))
 
 (set-register-contents! iterative-exp-machine 'b 2)
 (set-register-contents! iterative-exp-machine 'n 10)
@@ -214,36 +214,36 @@
 (define fib-machine
   (make-machine
    (list (list '< <) (list '- -) (list '+ +))
-'(
- (assign continue (label fib-done))
- fib-loop
- (test (op <) (reg n) (const 2))
- (branch (label immediate-answer))
- (save continue)
- (assign continue (label afterfib-n-1))
- (save n)
- (assign n (op -) (reg n) (const 1))
- (goto (label fib-loop))
- afterfib-n-1
- (restore n)
- ;(restore continue)
- (assign n (op -) (reg n) (const 2))
- ;(save continue)
- (assign continue (label afterfib-n-2))
- (save val)
- (goto (label fib-loop))
- afterfib-n-2
- ;(assign n (reg val))
- ;(restore val)
- ;; ex 5.11, replace the above two instructions with
- (restore n)
- (restore continue)
- (assign val (op +) (reg val) (reg n)) 
- (goto (reg continue))
- immediate-answer
- (assign val (reg n))
- (goto (reg continue))
- fib-done)))
+   '(
+     (assign continue (label fib-done))
+     fib-loop
+     (test (op <) (reg n) (const 2))
+     (branch (label immediate-answer))
+     (save continue)
+     (assign continue (label afterfib-n-1))
+     (save n)
+     (assign n (op -) (reg n) (const 1))
+     (goto (label fib-loop))
+     afterfib-n-1
+     (restore n)
+     ;(restore continue)
+     (assign n (op -) (reg n) (const 2))
+     ;(save continue)
+     (assign continue (label afterfib-n-2))
+     (save val)
+     (goto (label fib-loop))
+     afterfib-n-2
+     ;(assign n (reg val))
+     ;(restore val)
+     ;; ex 5.11, replace the above two instructions with
+     (restore n)
+     (restore continue)
+     (assign val (op +) (reg val) (reg n)) 
+     (goto (reg continue))
+     immediate-answer
+     (assign val (reg n))
+     (goto (reg continue))
+     fib-done)))
 
 (set-register-contents! fib-machine 'n 7)
 (start fib-machine)
