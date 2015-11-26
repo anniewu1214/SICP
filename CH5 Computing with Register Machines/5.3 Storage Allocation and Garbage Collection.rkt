@@ -1,10 +1,5 @@
 #lang planet neil/sicp
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; represent memory as vectors ;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-
 ; primitive memory operations
 (define (vector-ref <vector> <n>)
   "return the nth element of the vector")
@@ -13,20 +8,11 @@
   "set the nth element of the vector to <value>")
 
 
-; represent Lisp data: typed pointers
-;
-; - pair: divide memory into two vectors: the-cars, the-cdrs;
-;   A pointer to a pair is an index into the two vectors.
-; - number: a pointer a a number consists of a type indicating
-;   numerical data with the actual representation of the number
-; - symbol: interning symbols
-
-
 ; implementing primitive list operations
 ; * assume that operations on pointers use only the index portion of the typed pointer
 
 ;; car, cdr
-(assign <reg1> (op car) (reg <reg2>)) 
+(assign <reg1> (op car) (reg <reg2>))
 (assign <reg1> (op cdr) (reg <reg2>)) ; =>
 (assign <reg1> (op vector-ref) (reg the-cars) (reg <reg2>))
 (assign <reg1> (op vector-ref) (reg the-cdrs) (reg <reg2>))
@@ -213,3 +199,59 @@
 (set-register-contents! append!-machine 'y '(3 4))
 (start append!-machine)
 (get-register-contents append!-machine 'x) ; (1 2 3 4)
+
+
+; implementation of a stop-and-copy garbage collector
+(define gc-instructions
+  (
+  begin-garbage-collection
+    (assign free (const 0))
+    (assign scan (const 0))
+    (assign old (reg root)) ; ptr to obj to be relocated
+    (assign relocate-continue (label reassign-root))
+    (goto (label relocate-old-result-in-new))
+  reassign-root
+    (assign root (reg new)) ; ptr to the relocated obj
+    (goto (label gc-loop))
+  gc-loop
+    (test (op =) (reg scan) (reg free))
+    (branch (label gc-flip))
+    (assign old (op vector-ref) (reg new-cars) (reg scan))
+    (assign relocate-continue (label update-car))
+    (goto (label relocate-old-result-in-new))
+  update-car
+    (perform (op vector-set!) (reg new-cars) (reg scan) (reg new))
+    (assign old (op vector-ref) (reg new-cdrs) (reg scan))
+    (assign relocate-continue (label update-cdr))
+    (goto (label relocate-old-result-in-new))
+  update-cdr
+    (perform (op vector-set!) (reg new-cdrs) (reg scan) (reg new))
+    (assign scan (op +) (reg scan) (const 1))
+    (goto (label gc-loop))
+  relocate-old-result-in-new
+    (test (op pointer-to-pair?) (reg old))
+    (branch (label pair))
+    (assign new (reg old))
+    (goto (reg relocate-continue))
+  pair
+    (assign oldcr (op vector-ref) (reg the-cars) (reg old))
+    (test (op broken-heart?) (reg oldcr))
+    (branch (label already-moved))
+    (assign new (reg free))
+    (assign free (op +) (reg free) (const 1))
+    (perform (op vector-set!) (reg new-cars) (reg new) (reg oldcr))
+    (assign oldcr (op vector-set!) (reg new-cdrs) (reg new) (reg oldcr))
+    (perform (op vector-set!) (reg the-cars) (reg old) (const broken-heart))
+    (perform (op vector-set!) (reg the-cdrs) (reg old) (reg new))
+    (goto (reg relocate-continue))
+  already-moved
+    (assign new (op vector-ref) (reg the-cdrs) (reg old))
+    (goto (reg relocate-continue))
+  gc-flip
+    (assign temp (reg the-cdrs))
+    (assign the-cdrs (reg new-cdrs))
+    (assign new-cdrs (reg temp))
+    (assign temp (reg the-cars))
+    (assign the-cars (reg new-cars))
+    (assign new-cars (reg temp))
+  'gc-done))
