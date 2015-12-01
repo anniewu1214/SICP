@@ -153,7 +153,7 @@
      (goto (label ev-sequence))
      
      
-     ;; evaluating sequence
+     ;; evaluating sequence with tail recursion
      ev-begin
      (assign unev (op begin-actions) (reg exp))
      (save continue)
@@ -177,6 +177,27 @@
      ev-sequence-last-exp
      (restore continue)
      (goto (label eval-dispatch))
+     
+     
+;     ;; evaluating sequence without tail recursion
+;     ev-sequence
+;     (test (op no-more-exps?) (reg unev))
+;     (branch (label ev-sequence-end))
+;     (assign exp (op first-exp) (reg unev))
+;     (save unev)
+;     (save env)
+;     (assign continue (label ev-sequence-continue))
+;     (goto (label eval-dispatch))
+;     
+;     ev-sequence-continue
+;     (restore env)
+;     (restore unev)
+;     (assign unev (op rest-exps) (reg unev))
+;     (goto (label ev-sequence))
+;     
+;     ev-sequence-end
+;     (restore continue)
+;     (goto (reg continue))
      
      
      ;; if
@@ -249,12 +270,12 @@
      (assign exp (op cond->if) (reg exp))
      (goto (label ev-if))
      
-
+     
      ;; ex 5.24, condition as special form
      ev-cond-ex24
      (assign unev (op cond-clauses) (reg exp))
      (save continue)
-
+     
      ev-cond-loop
      (test (op null?) (reg unev))
      (branch (label ev-cond-void))
@@ -265,7 +286,7 @@
      (save env)
      (assign continue (label ev-cond-1))
      (goto (label eval-dispatch))
-
+     
      ev-cond-1
      (restore env)
      (restore unev)
@@ -273,7 +294,7 @@
      (branch (label ev-cond-true))
      (assign unev (op cond-rest-clauses) (reg unev))
      (goto (label ev-cond-loop))
-
+     
      ev-cond-true
      (assign unev (op cond-first-clause-actions) (reg unev))
      (goto (label ev-sequence))
@@ -292,10 +313,11 @@
 
 
 
-;; test
+;; start the evaluator
 (start eceval)
 
 
+;; append
 (define (append x y)
   (if (null? x)
       y
@@ -303,9 +325,80 @@
 
 (append '(a b c) '(d e f))
 
-(define (factorial n)
+
+
+;; ex 5.26, ex 5.27
+;
+; (factorial-iter 1) -> (total-pushes = 64  maximum-depth = 10)
+; (factorial-iter 2) -> (total-pushes = 99  maximum-depth = 10)
+; (factorial-iter 3) -> (total-pushes = 134 maximum-depth = 10)
+; (factorial-iter 4) -> (total-pushes = 169 maximum-depth = 10)
+;
+; (factorial-rec 1)  -> (total-pushes = 16  maximum-depth = 8)
+; (factorial-rec 2)  -> (total-pushes = 48  maximum-depth = 13)
+; (factorial-rec 3)  -> (total-pushes = 80  maximum-depth = 18)
+; (factorial-rec 4)  -> (total-pushes = 112 maximum-depth = 23)
+;
+;
+;                      | maximum-depth      | total-pushes
+;                      | (space complexity) | (time complexity) 
+; ---------------------|--------------------|-------------------
+; recursive factorial  | 5n + 3             |  32n - 16
+; iterative factorial  | 10                 |  35n + 29
+
+
+(define (factorial-iter n)
+  (define (iter product counter)
+    (if (> counter n)
+        product
+        (iter (* counter product)
+              (+ counter 1))))
+  (iter 1 1))
+
+(define (factorial-rec n)
   (if (= n 1)
       1
-      (* (factorial (- n 1)) n)))
+      (* (factorial-rec (- n 1)) n)))
 
-(factorial 5)
+
+
+;; ex 5.28
+;; eval-sequence no longer tail-recursive
+;
+; (factorial-iter 1) -> (total-pushes = 70  maximum-depth = 17)
+; (factorial-iter 2) -> (total-pushes = 107 maximum-depth = 20)
+; (factorial-iter 3) -> (total-pushes = 144 maximum-depth = 23)
+; (factorial-iter 4) -> (total-pushes = 181 maximum-depth = 26)
+;
+; (factorial-rec 1)  -> (total-pushes = 18  maximum-depth = 11)
+; (factorial-rec 2)  -> (total-pushes = 52  maximum-depth = 19)
+; (factorial-rec 3)  -> (total-pushes = 86  maximum-depth = 27)
+; (factorial-rec 4)  -> (total-pushes = 120 maximum-depth = 35)
+;
+;
+;                      | maximum-depth      | total-pushes
+; ---------------------|--------------------|-------------------
+; recursive factorial  | 37n + 33           |  3n + 14
+; iterative factorial  | 34n - 16           |  8n + 3
+
+
+
+; ex 5.29
+;
+; (fib 0) -> (total-pushes = 16 maximum-depth = 8)
+; (fib 1) -> (total-pushes = 16 maximum-depth = 8)
+; (fib 2) -> (total-pushes = 72 maximum-depth = 13)
+; (fib 3) -> (total-pushes = 128 maximum-depth = 18)
+; (fib 4) -> (total-pushes = 240 maximum-depth = 23)
+; (fib 5) -> (total-pushes = 408 maximum-depth = 28)
+;
+;
+;                      | maximum-depth      | total-pushes
+;                      | (linear)           | (exponential)
+; ---------------------|--------------------|--------------------
+; recursive Fibonacci  | 5n + 3             |  56 * Fib(n+1) - 40
+
+(define (fib n)
+  (if (< n 2)
+      n
+      (+ (fib (- n 1)) (fib (- n 2)))))
