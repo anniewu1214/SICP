@@ -179,7 +179,7 @@
      (goto (label eval-dispatch))
      
      
-     ;; conditional
+     ;; if
      ev-if
      (save exp)
      (save env)
@@ -249,6 +249,39 @@
      (assign exp (op cond->if) (reg exp))
      (goto (label ev-if))
      
+
+     ;; ex 5.24, condition as special form
+     ev-cond-ex24
+     (assign unev (op cond-clauses) (reg exp))
+     (save continue)
+
+     ev-cond-loop
+     (test (op null?) (reg unev))
+     (branch (label ev-cond-void))
+     (assign exp (op cond-first-clause-predicate) (reg unev))
+     (test (op cond-else-clause?) (reg exp))
+     (branch (label ev-cond-true))
+     (save unev)
+     (save env)
+     (assign continue (label ev-cond-1))
+     (goto (label eval-dispatch))
+
+     ev-cond-1
+     (restore env)
+     (restore unev)
+     (test (op true?) (reg val))
+     (branch (label ev-cond-true))
+     (assign unev (op cond-rest-clauses) (reg unev))
+     (goto (label ev-cond-loop))
+
+     ev-cond-true
+     (assign unev (op cond-first-clause-actions) (reg unev))
+     (goto (label ev-sequence))
+     
+     ev-cond-void
+     (assign val (const false))
+     (restore continue)
+     (goto (reg continue))
      
      ;; let
      ev-let

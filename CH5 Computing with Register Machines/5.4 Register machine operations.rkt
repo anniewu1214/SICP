@@ -57,6 +57,11 @@
 (define (cond-actions clause) (cdr clause))
 (define (cond->if exp) (expand-clauses (cond-clauses exp)))
 
+;; ex 5.24
+(define cond-first-clause-predicate caar)
+(define cond-first-clause-actions cdar)
+(define cond-rest-clauses cdr)
+
 (define (expand-clauses clauses)
   (if (null? clauses)
       'false
@@ -290,6 +295,11 @@
    ;; cond
    (list 'cond? cond?)
    (list 'cond->if cond->if)
+   (list 'cond-clauses cond-clauses)
+   (list 'cond-first-clause-predicate cond-first-clause-predicate)
+   (list 'cond-first-clause-actions cond-first-clause-actions)
+   (list 'cond-else-clause? cond-else-clause?)
+   (list 'cond-rest-clauses cond-rest-clauses)
 
    ;; let
    (list 'let? let?)
