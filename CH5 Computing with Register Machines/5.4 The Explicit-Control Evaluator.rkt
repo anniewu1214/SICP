@@ -1,8 +1,5 @@
 #lang planet neil/sicp
 
-(define (make-machine) "")
-(define (eceval-operations) "")
-
 ;; the core of the explicit-control evaluator
 
 (define eceval

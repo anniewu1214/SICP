@@ -258,6 +258,10 @@
 (define (last-operand? ops) (null? (cdr ops)))
 
 
+
+;;;;; procedure for lazy evaluation
+
+ 
 ;; list of all register machine operations (implemented as Scheme procedures)
 (define eceval-operations
   (list
