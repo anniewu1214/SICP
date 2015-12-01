@@ -68,10 +68,18 @@
      ev-self-eval
      (assign val (reg exp))
      (goto (reg continue))
-     
+
+     ;; ex 5.30
+     ;; catching unbounded variable error
      ev-variable
      (assign val (op lookup-variable-value) (reg exp) (reg env))
+     (test (op error?) (reg val))
+     (branch (label unbound-variable))
      (goto (reg continue))
+
+     unbound-variable
+     (assign val (op error-type) (reg val))
+     (goto (label signal-error))
      
      ev-quoted
      (assign val (op text-of-quotation) (reg exp))
@@ -139,11 +147,19 @@
      (test (op compound-procedure?) (reg proc))  
      (branch (label compound-apply))
      (goto (label unknown-procedure-type))
-     
+
+     ;; ex 5.30
+     ;; handling primitive procedure errors
      primitive-apply
      (assign val (op apply-primitive-procedure) (reg proc) (reg argl))
+     (test (op error?) (reg val))
+     (branch (label primitive-apply-error))
      (restore continue)
      (goto (reg continue))
+
+     primitive-apply-error
+     (assign val (op error-type) (reg val))
+     (goto (label signal-error))
      
      compound-apply
      (assign unev (op procedure-parameters) (reg proc))
@@ -402,3 +418,15 @@
   (if (< n 2)
       n
       (+ (fib (- n 1)) (fib (- n 2)))))
+
+
+
+;; ex 5.30
+;
+; a. procedure lookup-variable-value and ev-variable modified.
+; b. new safe-car and safe-div procedure, primitive-apply modified
+;
+;; test in REPL
+a          ; unbounded-variable-error
+(car 'a)   ; car-on-non-pair-error
+(/ 1 0)    ; zero-division-error

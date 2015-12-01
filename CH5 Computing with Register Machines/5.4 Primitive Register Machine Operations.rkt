@@ -154,21 +154,37 @@
       (cons (make-frame vars vals) base-env)
       (error "variables and values are not of same length" vars vals)))
 
+
+;; ex 5.30
+(define (make-error type object) (list 'error type object))
+(define (error? machin) (and (pair? machin) (eq? (car machin) 'error)))
+(define (error-type error) (cadr error))
+(define (error-object error) (caddr error))
+
+(define (safe-car pair)
+  (if (not (pair? pair))
+      (make-error 'car-on-non-pair-error pair)
+      (car pair)))
+
+(define (safe-div a b)
+  (if (= b 0)
+      (make-error 'zero-division-error (cons a b))
+      (/ a b)))      
+
+
 (define (lookup-variable-value var env)
   (define (env-loop env)
     (define (scan vars vals)
       (cond ((null? vars) (env-loop (enclosing-environment env)))
-            ((eq? var (car vars))
-             (if (eq? (car vals) '*unassigned*) ; ex 4.16
-                 (error "the procedure is not assigned" var)
-                 (car vals)))
+            ((eq? var (car vars)) (car vals))
             (else (scan (cdr vars) (cdr vals)))))
     (if (eq? env the-empty-environment)
-        (error "Unbound variable" var)
+        (make-error 'unbound-variable-error var) ; ex 5.30
         (let ((frame (first-frame env)))
           (scan (frame-variables frame)
                 (frame-values frame)))))
   (env-loop env))
+
 
 (define (set-variable-value! var val env)
   (define (env-loop env)
@@ -197,21 +213,22 @@
 (define (primitive-implementation proc) (cadr proc))
 
 (define primitive-procedures
-  (list (list 'car car)
+  (list (list 'car safe-car) ; ex 5.30
         (list 'cdr cdr)
         (list 'cadr cadr)
+        (list 'caddr caddr)
         (list 'cddr cddr)
         (list 'caar caar)
         (list '+ +)
         (list '= =)
         (list '- -)
         (list '* *)
-        (list '/ /)
+        (list '/ safe-div)   ; ex 5.30
         (list '< <)
         (list '> >)
-        (list 'append append)
         (list 'eq? eq?)
         (list 'equal? equal?)
+        (list 'pair? pair?)
         (list 'symbol? symbol?)
         (list 'cons cons) ;;; and more primitives
         (list 'null? null?)))
@@ -264,17 +281,21 @@
 
 
 
-;;;;; procedure for lazy evaluation
-
  
 ;; list of all register machine operations (implemented as Scheme procedures)
 (define eceval-operations
   (list
    ;; simple expressions
    (list 'self-evaluating? self-evaluating?)
-   (list 'variable? variable?)
    (list 'quoted? quoted?)
+   (list 'variable? variable?)
    (list 'text-of-quotation text-of-quotation)
+
+   ;; ex 5.30
+   ;; error
+   (list 'error? error?)
+   (list 'error-type error-type)
+   (list 'error-object error-object)
    
    ;; assignment
    (list 'assignment? assignment?)
@@ -352,4 +373,5 @@
    (list 'empty-arglist empty-arglist)
    (list 'adjoin-arg adjoin-arg)
    (list 'last-operand? last-operand?)
+   (list 'null? null?)
    ))
