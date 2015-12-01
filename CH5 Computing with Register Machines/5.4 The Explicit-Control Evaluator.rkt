@@ -158,6 +158,7 @@
      (goto (reg continue))
 
      primitive-apply-error
+     (restore continue)  ; clean up stack
      (assign val (op error-type) (reg val))
      (goto (label signal-error))
      
