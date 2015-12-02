@@ -374,4 +374,5 @@
    (list 'last-operand? last-operand?)
    (list 'null? null?)
    (list 'symbol? symbol?)
+   (list 'list list)
    ))

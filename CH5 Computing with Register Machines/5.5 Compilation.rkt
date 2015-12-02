@@ -215,3 +215,123 @@
         (assign env (op extend-environment) (const ,formals) (reg argl) (reg env))))
 
      (compile-sequence (lambda-body exp) 'val 'return))))
+
+
+
+;; compiling applications
+
+(define (compile-application exp target linkage)
+  (let ((proc-code (compile (operator exp) 'proc 'next))
+        (operand-codes
+         (map (lambda (operand) (compile operand 'val 'next))
+              (operands exp))))
+    (preserving '(env continue)
+                proc-code
+                (preserving '(proc continue)
+                            (construct-arglist operand-codes)
+                            (compile-procedure-call target linkage)))))
+
+
+;; compiling operands and construct argument list
+
+(define (construct-arglist operand-codes)
+  (let ((operand-codes (reverse operand-codes)))
+    (if (null? operand-codes)
+        (make-instruction-sequence
+         '() '(argl)
+         '((assign argl (const ()))))
+        (let ((code-to-get-last-arg
+               (append-instruction-sequences
+                (car operand-codes)
+                (make-instruction-sequence
+                 '(val) '(argl)
+                 '((assign argl (op list) (reg val)))))))
+          (if (null? (cdr operand-codes))
+              code-to-get-last-arg
+              (preserving '(env)
+                          code-to-get-last-arg
+                          (code-to-get-rest-args (cdr operand-codes))))))))
+
+(define (code-to-get-rest-args operand-codes)
+  (let ((code-for-next-arg
+         (preserving '(argl)
+                     (car operand-codes)
+                     (make-instruction-sequence
+                      '(val argl) '(argl)
+                      '((assign argl (op cons) (reg val) (reg argl)))))))
+    (if (null? (cdr operand-codes))
+        code-for-next-arg
+        (preserving '(env)
+                    code-for-next-arg
+                    (code-to-get-rest-args (cdr operand-codes))))))
+
+
+
+;; compiling procedure calls
+
+(define (compile-procedure-call target linkage)
+  (let ((primitive-branch (make-label 'primitive-branch))
+        (compiled-branch (make-label 'compiled-branch))
+        (after-call (make-label 'after-call)))
+    (let ((compiled-linkage
+           (if (eq? linkage 'next) after-call linkage)))
+      (append-instruction-sequences
+
+       ; <seq 1>
+       (make-instruction-sequence
+        '(proc) '()
+        '((test (op primitive-procedure?) (reg proc))
+          (branch (label ,primitive-branch))))
+
+       ; <seq 2>
+       (parallel-instruction-sequences
+
+        ; <seq 2.1>
+        (append-instruction-sequences
+         compiled-branch
+         (compile-proc-appl target compiled-linkage))
+
+        ; <seq 2.2>
+        (append-instruction-sequences
+         primitive-branch
+         (end-with-linkage linkage
+                           (make-instruction-sequence
+                            '(proc argl) (list target)
+                            '((assign ,target
+                                      (op apply-primitive-procedure)
+                                      (reg proc)
+                                      (reg argl)))))))
+
+       ; <seq 3>
+       after-call))))
+
+
+;; compiling compiled procedures
+
+(define all-regs '(env proc val argl continue))
+
+(define (compile-proc-appl target linkage)
+  (cond ((and (eq? target 'val) (not (eq? linkage 'return)))
+         (append-instruction-sequences
+          '(proc) all-regs
+          '((assign continue (label ,linkage))
+            (assign val (op compile-procedure-entry) (reg proc))
+            (goto (reg val)))))
+        ((and (not (eq? target 'val)) (not (eq? linkage 'return)))
+         (let ((proc-return (make-label 'proc-return)))
+           (append-instruction-sequences
+            '(proc) all-regs
+            '((assign continue (label ,proc-return))
+              (assign val (op compiled-procedure-entry) (reg proc))
+              (goto (reg val))
+              ,proc-return
+              (assign ,target (reg val))
+              (goto (label ,linkage))))))
+        ((and (eq? target 'val) (eq? linkage 'return))
+         (append-instruction-sequences
+          '(proc continue) all-regs
+          '((assign val (op compiled-procedure-entry) (reg proc))
+            (goto (reg val)))))
+        ((and (not (eq? target 'val)) ((eq? linkage 'return)))
+         (error "return linkage, target not val -- COMPILE" target))))
+
