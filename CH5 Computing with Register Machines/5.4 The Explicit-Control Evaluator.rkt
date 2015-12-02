@@ -95,16 +95,27 @@
      ;; evaluating procedure application
      ev-application
      (save continue)
-     (save env)
      (assign unev (op operands) (reg exp))
-     (save unev)
      (assign exp (op operator) (reg exp))
+     ;; ex 5.32
+     ;; avoid saving and restoring env around the evaluation
+     ;; of the operator if the operator is a symbol
+     (test (op symbol?) (reg exp))
+     (branch (label ev-operator-symbol))
+     (save env)
+     (save unev)
      (assign continue (label ev-appl-did-operator))
      (goto (label eval-dispatch))
-     
+
+     ev-operator-symbol
+     (assign continue (label ev-operator-symbol-1))
+     (goto (label eval-dispatch))
+
      ev-appl-did-operator
      (restore unev)
      (restore env)
+     
+     ev-operator-symbol-1
      (assign argl (op empty-arglist))
      (assign proc (reg val))
      (test (op no-operands?) (reg unev))

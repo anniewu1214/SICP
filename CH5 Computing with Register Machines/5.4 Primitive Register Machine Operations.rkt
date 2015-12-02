@@ -280,7 +280,6 @@
 (define (last-operand? ops) (null? (cdr ops)))
 
 
-
  
 ;; list of all register machine operations (implemented as Scheme procedures)
 (define eceval-operations
@@ -374,4 +373,5 @@
    (list 'adjoin-arg adjoin-arg)
    (list 'last-operand? last-operand?)
    (list 'null? null?)
+   (list 'symbol? symbol?)
    ))
