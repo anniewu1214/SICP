@@ -26,6 +26,11 @@
 (define (registers-modified s) (if (symbol? s) '() (cadr s)))
 (define (statements s) (if (symbol? s) (list s) (caddr s)))
 
+(define (memq item x)
+  (cond ((null? x) #f)
+        ((eq? (car x) item) x)
+        (else (memq item (cdr x)))))
+
 (define (needs-register? seq reg) (memq reg (registers-needed seq)))
 (define (modifies-register? seq reg) (memq reg (registers-modified seq)))
 
@@ -41,7 +46,7 @@
      
      (list-union (registers-modified seq1)
                  (registers-modified seq2))
-
+     
      (append (statements seq1) (statements seq2))))
   (define (append-seq-list seqs)
     (if (null? seqs)
@@ -53,12 +58,12 @@
 
 (define (list-union s1 s2)
   (cond ((null? s1) s2)
-        ((memq? (car s1) s2) (list-union (cdr s1) s2))
+        ((memq (car s1) s2) (list-union (cdr s1) s2))
         (else (cons (car s1) (list-union (cdr s1) s2)))))
 
 (define (list-difference s1 s2)
   (cond ((null? s1) '())
-        ((memq? (car s1) s2) (list-difference (cdr s1) s2))
+        ((memq (car s1) s2) (list-difference (cdr s1) s2))
         (else (cons (car s1) (list-difference (cdr s1) s2)))))
 
 
@@ -68,7 +73,7 @@
       (append-instruction-sequences seq1 seq2)
       (let ((first-reg (car regs)))
         (if (and (needs-register? seq2 first-reg)
-                 (modified-register? seq1 first-reg))
+                 (modifies-register? seq1 first-reg))
             (preserving (cdr regs)
                         
                         (make-instruction-sequence
@@ -77,7 +82,7 @@
                          (append '((save ,first-reg))
                                  (statements seq1)
                                  '((restore ,first-reg))))
-
+                        
                         seq2)
             (preserving (cdr regs) seq1 seq2)))))
 
@@ -124,13 +129,13 @@
 
 (define (compile-linkage linkage)
   (cond ((eq? linkage 'return)
-         (make-instruction-sequence
-          '(continue) '()
-          '((goto (reg continue)))))
-        ((eq? linkage 'next) (empty-instruction-sequence))
-        (else (make-instruction-sequence
-               '() '()
-               '((goto (label ,linkage)))))))
+         (make-instruction-sequence '(continue) '()
+                                    '((goto (reg continue)))))
+        ((eq? linkage 'next)
+         (empty-instruction-sequence))
+        (else
+         (make-instruction-sequence '() '()
+                                    `((goto (label ,linkage)))))))
 
 
 (define (end-with-linkage linkage instruction-sequence)
@@ -146,22 +151,24 @@
   (end-with-linkage linkage
                     (make-instruction-sequence
                      '() (list target)
-                     '((assign ,target (const ,exp))))))
+                     `((assign ,target (const ,exp))))))
 
 
 (define (compile-quoted exp target linkage)
   (end-with-linkage linkage
                     (make-instruction-sequence
                      '() (list target)
-                     '((assign ,target (const ,(text-of-quotation exp)))))))
+                     `((assign ,target (const ,(text-of-quotation exp)))))))
 
 
 (define (compile-variable exp target linkage)
   (end-with-linkage linkage
                     (make-instruction-sequence
                      '(env) (list target)
-                     '((assign ,target
-                               (op lookup-variable-value) (const ,exp) (reg env))))))
+                     `((assign ,target
+                               (op lookup-variable-value)
+                               (const ,exp)
+                               (reg env))))))
 
 
 (define (compile-assignment exp target linkage)
@@ -173,7 +180,7 @@
                                   get-value-code
                                   (make-instruction-sequence
                                    '(env val) (list target)
-                                   '((perform (op set-variable-value!)
+                                   `((perform (op set-variable-value!)
                                               (const ,var)
                                               (reg val)
                                               (reg env))
@@ -189,7 +196,7 @@
                                   get-value-code
                                   (make-instruction-sequence
                                    '(env val) (list target)
-                                   '((perform (op define-variable!)
+                                   `((perform (op define-variable!)
                                               (const ,var)
                                               (reg val)
                                               (reg env))
@@ -207,8 +214,8 @@
 
 (define (make-label name)
   (string->symbol
-   (string->append (symbol->string name)
-                   (number->string (new-label-number)))))
+   (string-append (symbol->string name)
+                  (number->string (new-label-number)))))
 
 
 
@@ -216,38 +223,40 @@
 
 (define (compile-if exp target linkage)
   (let ((t-branch (make-label 'true-branch))
-        (f-branch (make-label 'false-branch))
+        (f-branch (make-label 'false-branch))                    
         (after-if (make-label 'after-if)))
-    (let ((consequent-linkage
-           (if (eq? linkage 'next) after-if linkage)))
+    (let ((consequent-linkage (if (eq? linkage 'next) after-if linkage)))
       (let ((p-code (compile (if-predicate exp) 'val 'next))
             (c-code (compile (if-consequent exp) target consequent-linkage))
             (a-code (compile (if-alternative exp) target linkage)))
         (preserving '(env continue)
                     
+                    ; <seq 1>
                     p-code
                     
+                    ; <seq 2>
                     (append-instruction-sequences
+                     ; <seq 2.1>
                      (make-instruction-sequence
                       '(val) '()
-                      '((test (op false?) (reg val))
+                      `((test (op false?) (reg val))
                         (branch (label ,f-branch))))
-                     
-                     (parallel-instruction-sequence
+                     ; <seq 2.2>
+                     (parallel-instruction-sequences
                       (append-instruction-sequences t-branch c-code)
                       (append-instruction-sequences f-branch a-code))
-                     
+                     ; <seq 2.3>
                      after-if))))))
 
 
 ;; compiling sequences
 
-(define (compile-sequences seq target linkage)
+(define (compile-sequence seq target linkage)
   (if (last-exp? seq)
       (compile (first-exp seq) target linkage)
       (preserving '(env continue)
                   (compile (first-exp seq) target 'next)
-                  (compile-sequences (rest-exps seq) target linkage))))
+                  (compile-sequence (rest-exps seq) target linkage))))
 
 
 
@@ -265,8 +274,7 @@
 (define (compile-lambda exp target linkage)
   (let ((proc-entry (make-label 'entry))
         (after-lambda (make-label 'after-lambda)))
-    (let ((lambda-linkage
-           (if (eq? linkage 'next) after-lambda linkage)))
+    (let ((lambda-linkage (if (eq? linkage 'next) after-lambda linkage)))
       (append-instruction-sequences
        
        (tack-on-instruction-sequence
@@ -274,10 +282,7 @@
         (end-with-linkage lambda-linkage
                           (make-instruction-sequence
                            '(env) (list target)
-                           '((assign ,target
-                                     (op make-compiled-procedure)
-                                     (label ,proc-entry)
-                                     (reg env)))))
+                           `((assign ,target (op make-compiled-procedure) (label ,proc-entry) (reg env)))))
         
         (compile-lambda-body exp proc-entry))
        
@@ -287,13 +292,10 @@
 (define (compile-lambda-body exp proc-entry)
   (let ((formals (lambda-parameters exp)))
     (append-instruction-sequences
-
-     (make-instruction-sequence
-      '(env proc argl) '(env)
-      '(,proc-entry
-        (assign env (op compiled-procedure-env) (reg proc))
-        (assign env (op extend-environment) (const ,formals) (reg argl) (reg env))))
-
+     (make-instruction-sequence '(env proc argl) '(env)
+                                `(,proc-entry
+                                  (assign env (op compiled-procedure-env) (reg proc))
+                                  (assign env (op extend-environment) (const ,formals) (reg argl) (reg env))))
      (compile-sequence (lambda-body exp) 'val 'return))))
 
 
@@ -332,6 +334,7 @@
                           code-to-get-last-arg
                           (code-to-get-rest-args (cdr operand-codes))))))))
 
+
 (define (code-to-get-rest-args operand-codes)
   (let ((code-for-next-arg
          (preserving '(argl)
@@ -353,37 +356,35 @@
   (let ((primitive-branch (make-label 'primitive-branch))
         (compiled-branch (make-label 'compiled-branch))
         (after-call (make-label 'after-call)))
-    (let ((compiled-linkage
-           (if (eq? linkage 'next) after-call linkage)))
+    (let ((compiled-linkage (if (eq? linkage 'next) after-call linkage)))
       (append-instruction-sequences
-
+       
        ; <seq 1>
        (make-instruction-sequence
         '(proc) '()
-        '((test (op primitive-procedure?) (reg proc))
+        `((test (op primitive-procedure?) (reg proc))
           (branch (label ,primitive-branch))))
-
+       
        ; <seq 2>
        (parallel-instruction-sequences
-
+        
         ; <seq 2.1>
         (append-instruction-sequences
          compiled-branch
          (compile-proc-appl target compiled-linkage))
-
+        
         ; <seq 2.2>
         (append-instruction-sequences
          primitive-branch
          (end-with-linkage linkage
                            (make-instruction-sequence
-                            '(proc argl) (list target)
-                            '((assign ,target
-                                      (op apply-primitive-procedure)
-                                      (reg proc)
-                                      (reg argl)))))))
-
+                            '(proc argl)
+                            (list target)
+                            `((assign ,target (op apply-primitive-procedure) (reg proc) (reg argl)))))))
+       
        ; <seq 3>
        after-call))))
+
 
 
 ;; compiling compiled procedures
@@ -392,27 +393,36 @@
 
 (define (compile-proc-appl target linkage)
   (cond ((and (eq? target 'val) (not (eq? linkage 'return)))
-         (append-instruction-sequences
+         (make-instruction-sequence
           '(proc) all-regs
-          '((assign continue (label ,linkage))
-            (assign val (op compile-procedure-entry) (reg proc))
+          `((assign continue (label ,linkage))
+            (assign val (op compiled-procedure-entry) (reg proc))
             (goto (reg val)))))
         ((and (not (eq? target 'val)) (not (eq? linkage 'return)))
          (let ((proc-return (make-label 'proc-return)))
-           (append-instruction-sequences
+           (make-instruction-sequence
             '(proc) all-regs
-            '((assign continue (label ,proc-return))
+            `((assign continue (label ,proc-return))
               (assign val (op compiled-procedure-entry) (reg proc))
               (goto (reg val))
               ,proc-return
               (assign ,target (reg val))
               (goto (label ,linkage))))))
         ((and (eq? target 'val) (eq? linkage 'return))
-         (append-instruction-sequences
+         (make-instruction-sequence
           '(proc continue) all-regs
           '((assign val (op compiled-procedure-entry) (reg proc))
             (goto (reg val)))))
-        ((and (not (eq? target 'val)) ((eq? linkage 'return)))
+        ((and (not (eq? target 'val)) (eq? linkage 'return))
          (error "return linkage, target not val -- COMPILE" target))))
 
 
+
+;; test
+(display (compile
+          '(define (factorial n)
+             (if (= n 1)
+                 1
+                 (* (factorial (- n 1)) n)))
+          'val
+          'next))
