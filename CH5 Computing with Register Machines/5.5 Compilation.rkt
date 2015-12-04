@@ -834,9 +834,3 @@ after-call9
              (make-instruction-sequence
               '(argl) '(argl)
               '((assign argl (op reverse) (reg argl)))))))))
-
-
-
-
-; ex 5.38
-
