@@ -329,12 +329,7 @@
 
 (define (make-operation-exp exp machine labels operations)
   (let ((op (lookup-prim (cadar exp) operations))
-        (aprocs (map
-                 (lambda (e)
-                   ;; ex 5.9
-                   (if (or (constant-exp? e) (register-exp? e))
-                       (make-primitive-exp e machine labels)
-                       (error "operate used only with registers and constants" e)))
+        (aprocs (map (lambda (e) (make-primitive-exp e machine labels))
                  (cdr exp))))
     (lambda () (apply op (map (lambda (p) (p)) aprocs)))))
 
