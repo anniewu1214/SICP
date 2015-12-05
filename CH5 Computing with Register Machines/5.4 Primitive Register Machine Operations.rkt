@@ -266,12 +266,14 @@
   (newline) (display string) (newline))
 
 (define (user-print object)
-  (if (compound-procedure? object)
-      (display (list 'compound-procedure
-                     (procedure-parameters object)
-                     (procedure-body object)
-                     '<procedure-env>))
-      (display object)))
+  (cond ((compound-procedure? object)
+         (display (list 'compound-procedure
+                        (procedure-parameters object)
+                        (procedure-body object)
+                        '<procedure-env>)))
+        ((compiled-procedure? object)
+         (display '<compiled-procedure>))
+        (else (display object))))
 
 
 ;; supplementary
@@ -280,7 +282,49 @@
 (define (last-operand? ops) (null? (cdr ops)))
 
 
- 
+;; compilation procedures
+
+;; representing compiled procedures
+(define (make-compiled-procedure entry env) (list 'compiled-procedure entry env))
+(define (compiled-procedure? proc) (tagged-list? proc 'compiled-procedure))
+(define (compiled-procedure-entry c-proc) (cadr c-proc))
+(define (compiled-procedure-env c-proc) (caddr c-proc))
+
+
+;; combining instruction sequences
+
+(define (make-instruction-sequence needs modifies statements) (list needs modifies statements))
+(define (empty-instruction-sequence) (make-instruction-sequence '() '() '()))
+
+(define (registers-needed s) (if (symbol? s) '() (car s)))
+(define (registers-modified s) (if (symbol? s) '() (cadr s)))
+(define (statements s) (if (symbol? s) (list s) (caddr s)))
+
+(define (needs-register? seq reg) (memq reg (registers-needed seq)))
+(define (modifies-register? seq reg) (memq reg (registers-modified seq)))
+
+;; lexical address operations
+(define (frame-number address) (car address))
+(define (displacement-number address) (cadr address))
+
+(define (lexical-address-lookup address env)
+  (let* ((frame (list-ref env (frame-number address)))
+         (value (list-ref (frame-values frame) (displacement-number address))))
+    (if (eq? value '*unassigned*)
+        (error "variable unassigned -- LEXICAL-ADDRESS-LOOKUP" address)
+        value)))
+
+(define (list-set! list i value)
+  (if (= i 0)
+      (set-car! list value)
+      (list-set! (cdr list) (- i 1) value)))
+
+(define (lexical-address-set! address value env)
+  (let ((frame (list-ref env (frame-number address))))
+    (list-set! frame (displacement-number address) value)))
+
+
+
 ;; list of all register machine operations (implemented as Scheme procedures)
 (define eceval-operations
   (list
@@ -289,7 +333,7 @@
    (list 'quoted? quoted?)
    (list 'variable? variable?)
    (list 'text-of-quotation text-of-quotation)
-
+   
    ;; ex 5.30
    ;; error
    (list 'error? error?)
@@ -320,7 +364,7 @@
    (list 'cond-first-clause-actions cond-first-clause-actions)
    (list 'cond-else-clause? cond-else-clause?)
    (list 'cond-rest-clauses cond-rest-clauses)
-
+   
    ;; let
    (list 'let? let?)
    (list 'let->combination let->combination)
@@ -343,6 +387,7 @@
    (list 'operator operator)
    (list 'no-operands? no-operands?)
    (list 'first-operand first-operand)
+   (list 'last-operand? last-operand?)
    (list 'rest-operands rest-operands)
    
    ;; environment
@@ -355,6 +400,10 @@
    (list 'primitive-procedure? primitive-procedure?)
    (list 'apply-primitive-procedure apply-primitive-procedure)
    (list 'compound-procedure? compound-procedure?)
+   (list 'compiled-procedure? compiled-procedure?)
+   (list 'compiled-procedure-entry compiled-procedure-entry)
+   (list 'compiled-procedure-env compiled-procedure-env)
+   (list 'make-compiled-procedure make-compiled-procedure)
    (list 'procedure-parameters procedure-parameters)
    (list 'procedure-environment procedure-environment)
    (list 'procedure-body procedure-body)       
@@ -367,12 +416,26 @@
    (list 'get-global-environment get-global-environment)
    (list 'announce-output announce-output)
    (list 'user-print user-print)
+
+   ;; primitives
+   (list 'null? null?)
+   (list 'false? false?)
+   (list 'true? true?)
+   (list 'symbol? symbol?)
+   (list 'list list)
+   (list '= =)
+   (list '- -)
+   (list '* *)
+   (list '+ +)
+   (list '/ '/)
+   (list 'list list)
+   (list 'cons cons)
+   (list 'reverse reverse)
    
    ;; supplementary
    (list 'empty-arglist empty-arglist)
    (list 'adjoin-arg adjoin-arg)
-   (list 'last-operand? last-operand?)
-   (list 'null? null?)
-   (list 'symbol? symbol?)
-   (list 'list list)
-   ))
+
+   ;; compilation
+   (list 'lexical-address-lookup lexical-address-lookup)
+   (list 'lexical-address-set! lexical-address-set!)))
