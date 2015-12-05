@@ -12,7 +12,7 @@
         ((lambda? exp) (compile-lambda exp target linkage env))
         ((begin? exp) (compile-sequence (begin-actions exp) target linkage env))
         ((cond? exp) (compile (cond->if exp) target linkage env))
-        ((open-code? exp) (compile-open-code exp target linkage env))
+        ((open-code? exp env) (compile-open-code exp target linkage env))
         ((application? exp) (compile-application exp target linkage env))
         (else (error "Unknown expression type -- COMPILE" exp))))
 
@@ -655,9 +655,14 @@
 ; (assign arg2 (const 3))
 ; (assign val (op +) (reg arg1) (reg arg2))
 
-(define (open-code? exp)
+
+;; ex 5.44
+;; consult the compile-time envirinment to correctly compile expressions
+;; involving the names of primitive procedures
+(define (open-code? exp env)
   (and (pair? exp)
-       (memq (car exp) '(+ * - =))))
+       (memq (car exp) '(+ * - =))
+       (eq? (find-variable (car exp) env) 'not-found)))
 
 
 (define (compile-open-code exp target linkage env)
@@ -704,27 +709,27 @@
   '(
     (assign val (op make-compiled-procedure) (label entry1) (reg env))
     (goto (label after-lambda2))
-
+    
     entry1
     (assign env (op compiled-procedure-env) (reg proc))
     (assign env (op extend-environment) (const (n)) (reg argl) (reg env))
-
+    
     ; optimized
     (assign arg1 (op lexical-address-lookup) (const (0 0)) (reg env))
     (assign arg2 (const 1))
     (assign val (op =) (reg arg1) (reg arg2))
-
+    
     (test (op false?) (reg val))
     (branch (label false-branch4))
-
+    
     true-branch3
     (assign val (const 1))
     (goto (reg continue))
-
+    
     false-branch4
     (save continue)
     (save env)
-
+    
     ; optimized
     (assign proc (op lookup-variable-value) (const factorial) (reg env))
     (assign arg1 (op lexical-address-lookup) (const (0 0)) (reg env))
@@ -733,19 +738,19 @@
     (assign argl (op list) (reg val))
     (test (op primitive-procedure?) (reg proc))
     (branch (label primitive-branch6))
-
+    
     compiled-branch7
     (assign continue (label proc-return9))
     (assign val (op compiled-procedure-entry) (reg proc))
     (goto (reg val))
-
+    
     proc-return9
     (assign arg1 (reg val))
     (goto (label after-call8))
-
+    
     primitive-branch6
     (assign arg1 (op apply-primitive-procedure) (reg proc) (reg argl))
-
+    
     after-call8
     (restore env)
     (restore continue)
@@ -753,9 +758,9 @@
     (assign arg2 (op lexical-address-lookup) (const (0 0)) (reg env))
     (assign val (op *) (reg arg1) (reg arg2))
     (goto (reg continue))
-
+    
     after-if5
     after-lambda2
-
+    
     (perform (op define-variable!) (const factorial) (reg val) (reg env))
     (assign val (const ok))))
