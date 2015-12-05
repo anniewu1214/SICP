@@ -12,8 +12,10 @@
         ((lambda? exp) (compile-lambda exp target linkage env))
         ((begin? exp) (compile-sequence (begin-actions exp) target linkage env))
         ((cond? exp) (compile (cond->if exp) target linkage env))
+        ((open-code? exp) (compile-open-code exp target linkage env))
         ((application? exp) (compile-application exp target linkage env))
         (else (error "Unknown expression type -- COMPILE" exp))))
+
 
 
 
@@ -23,7 +25,8 @@
 (define (extend-compile-time-environment vars base-env) (cons vars base-env))
 
 
-; ex 5.41
+;; ex 5.41
+;; find the lexical address of a variable in the compile time environment
 (define (find-variable var compile-time-env)
   (define (search-var-in-frame frame displacement)
     (cond ((null? frame) false)
@@ -454,7 +457,7 @@
 
 ;; compiling compiled procedures
 
-(define all-regs '(env proc val argl continue))
+(define all-regs '(env proc val argl continue arg1 arg2))
 
 (define (compile-proc-appl target linkage env)
   (cond ((and (eq? target 'val) (not (eq? linkage 'return)))
@@ -500,7 +503,9 @@
           'next
           the-empty-compile-time-environment))
 
-
+(set! label-number 0)
+(newline)
+(newline)
 
 ;; compilation result
 
@@ -635,3 +640,122 @@
     (assign val (op apply-primitive-procedure) (reg proc) (reg argl))
     
     after-call21))
+
+
+
+
+;; ex 5.38
+;; open code primitives
+
+; (+ 1 2 3)
+;
+; (assign arg1 (const 1))
+; (assign arg2 (const 2))
+; (assign arg1 (op +) (reg arg1) (reg arg2))
+; (assign arg2 (const 3))
+; (assign val (op +) (reg arg1) (reg arg2))
+
+(define (open-code? exp)
+  (and (pair? exp)
+       (memq (car exp) '(+ * - =))))
+
+
+(define (compile-open-code exp target linkage env)
+  (let ((operator (car exp))
+        (first-operand (cadr exp))
+        (rest-operands (cddr exp)))
+    (preserving '(env continue)
+                (compile first-operand 'arg1 'next env)
+                (compile-open-code-rest-args operator rest-operands target linkage env))))
+
+(define (compile-open-code-rest-args operator rest-operands target linkage env)
+  (if (null? (cdr rest-operands))
+      (preserving '(arg1 continue)
+                  (compile (car rest-operands) 'arg2 'next env)
+                  (end-with-linkage linkage
+                                    (make-instruction-sequence
+                                     '(arg1 arg2) (list target)
+                                     `((assign ,target (op ,operator) (reg arg1) (reg arg2))))))
+      
+      (preserving '(env continue)
+                  (preserving '(arg1)
+                              (compile (car rest-operands) 'arg2 'next env)
+                              (make-instruction-sequence
+                               '(arg1 arg2) '(arg1)
+                               `((assign arg1 (op ,operator) (reg arg1) (reg arg2)))))
+                  (compile-open-code-rest-args operator (cdr rest-operands) target linkage env))))
+
+
+
+
+;; compilation with primitives open coded
+
+(display (compile
+          '(define (factorial n)
+             (if (= n 1)
+                 1
+                 (* (factorial (- n 1)) n)))
+          'val
+          'next
+          the-empty-compile-time-environment))
+
+
+(define (compiled-factorial-with-primitives-open-coded)
+  '(
+    (assign val (op make-compiled-procedure) (label entry1) (reg env))
+    (goto (label after-lambda2))
+
+    entry1
+    (assign env (op compiled-procedure-env) (reg proc))
+    (assign env (op extend-environment) (const (n)) (reg argl) (reg env))
+
+    ; optimized
+    (assign arg1 (op lexical-address-lookup) (const (0 0)) (reg env))
+    (assign arg2 (const 1))
+    (assign val (op =) (reg arg1) (reg arg2))
+
+    (test (op false?) (reg val))
+    (branch (label false-branch4))
+
+    true-branch3
+    (assign val (const 1))
+    (goto (reg continue))
+
+    false-branch4
+    (save continue)
+    (save env)
+
+    ; optimized
+    (assign proc (op lookup-variable-value) (const factorial) (reg env))
+    (assign arg1 (op lexical-address-lookup) (const (0 0)) (reg env))
+    (assign arg2 (const 1))
+    (assign val (op -) (reg arg1) (reg arg2))
+    (assign argl (op list) (reg val))
+    (test (op primitive-procedure?) (reg proc))
+    (branch (label primitive-branch6))
+
+    compiled-branch7
+    (assign continue (label proc-return9))
+    (assign val (op compiled-procedure-entry) (reg proc))
+    (goto (reg val))
+
+    proc-return9
+    (assign arg1 (reg val))
+    (goto (label after-call8))
+
+    primitive-branch6
+    (assign arg1 (op apply-primitive-procedure) (reg proc) (reg argl))
+
+    after-call8
+    (restore env)
+    (restore continue)
+    ; optimized
+    (assign arg2 (op lexical-address-lookup) (const (0 0)) (reg env))
+    (assign val (op *) (reg arg1) (reg arg2))
+    (goto (reg continue))
+
+    after-if5
+    after-lambda2
+
+    (perform (op define-variable!) (const factorial) (reg val) (reg env))
+    (assign val (const ok))))
