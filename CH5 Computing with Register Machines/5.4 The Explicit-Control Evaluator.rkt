@@ -6,6 +6,8 @@
   (make-machine
    eceval-operations
    '(
+     (branch (label external-entry))
+     
      ;; running the evaluator
      read-eval-print-loop
      (perform (op initialize-stack))
@@ -68,7 +70,7 @@
      ev-self-eval
      (assign val (reg exp))
      (goto (reg continue))
-
+     
      ;; ex 5.30
      ;; catching unbounded variable error
      ev-variable
@@ -76,7 +78,7 @@
      (test (op error?) (reg val))
      (branch (label unbound-variable))
      (goto (reg continue))
-
+     
      unbound-variable
      (assign val (op error-type) (reg val))
      (goto (label signal-error))
@@ -106,11 +108,11 @@
      (save unev)
      (assign continue (label ev-appl-did-operator))
      (goto (label eval-dispatch))
-
+     
      ev-operator-symbol
      (assign continue (label ev-operator-symbol-1))
      (goto (label eval-dispatch))
-
+     
      ev-appl-did-operator
      (restore unev)
      (restore env)
@@ -157,8 +159,16 @@
      (branch (label primitive-apply))
      (test (op compound-procedure?) (reg proc))  
      (branch (label compound-apply))
+     (test (op compiled-procedure?) (reg proc))  
+     (branch (label compiled-apply))
      (goto (label unknown-procedure-type))
-
+     
+     
+     compiled-apply
+     (restore continue)
+     (assign val (op compiled-procedure-entry) (reg proc))
+     (goto (reg val))
+     
      ;; ex 5.30
      ;; handling primitive procedure errors
      primitive-apply
@@ -167,7 +177,7 @@
      (branch (label primitive-apply-error))
      (restore continue)
      (goto (reg continue))
-
+     
      primitive-apply-error
      (restore continue)  ; clean up stack
      (assign val (op error-type) (reg val))
@@ -337,12 +347,33 @@
      (assign exp (op let->combination) (reg exp))
      (goto (label ev-lambda))
      
-     )))
+     external-entry
+     (perform (op initialize-stack))
+     (assign env (op get-global-environment))
+     (assign continue (label print-result))
+     (goto (reg val)))))
+
+;; start the evaluator at its ordinary REPL
+(define (start-eceval)
+  (set! the-global-environment (setup-environment))
+  (set-register-contents! eceval 'flag false)
+  (start eceval))
 
 
 
 ;; start the evaluator
-(start eceval)
+(define (compile-and-go expression)
+  (let ((instructions
+         (assemble (statements (compile expression 'val 'return '()))
+                   eceval)))
+    (set! the-global-environment (setup-environment))
+    (set-register-contents! eceval 'val instructions)
+    (set-register-contents! eceval 'flag true)
+    (start eceval)))
+
+
+;; start the evaluator
+(start-eceval)
 
 
 ;; append
