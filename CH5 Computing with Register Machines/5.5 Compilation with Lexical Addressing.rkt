@@ -330,6 +330,27 @@
        after-lambda))))
 
 
+;; simultaneous scoping for internal definitions
+(define (scan-out-defines proc-body)
+  (define (let-part defines)
+    (map (lambda (x) (list (definition-variable x) '*unassigned*)) defines))
+  
+  (define (set-part defines)
+    (map (lambda (x) (list 'set! (definition-variable x) (definition-value x))) defines))
+  
+  (define (iter body def-acc others-acc)
+    (cond ((null? body)
+           (if (null? def-acc)
+               proc-body
+               (list (cons 'let
+                           (cons (let-part def-acc)
+                                 (append (set-part def-acc) others-acc))))))
+          ((definition? (car body))
+           (iter (cdr body) (append def-acc (list (car body))) others-acc))
+          (else (iter (cdr body) def-acc (append others-acc (list (car body)))))))
+  (iter proc-body '() '()))
+
+
 (define (compile-lambda-body exp proc-entry env)
   (let ((formals (lambda-parameters exp)))
     (append-instruction-sequences
@@ -338,9 +359,10 @@
       `(,proc-entry
         (assign env (op compiled-procedure-env) (reg proc))
         (assign env (op extend-environment) (const ,formals) (reg argl) (reg env))))
-     (compile-sequence (lambda-body exp)
-                       'val 'return
-                       (extend-compile-time-environment formals env)))))
+     (compile-sequence
+      (scan-out-defines (lambda-body exp))  ; ex 5.43
+      'val 'return
+      (extend-compile-time-environment formals env)))))
 
 
 
