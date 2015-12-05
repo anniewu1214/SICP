@@ -321,10 +321,59 @@
 
 
 ;; test
+
 (compile-and-go
  '(define (factorial n)
     (if (= n 1)
         1
         (* (factorial (- n 1)) n))))
 
-;; (total-pushes = 11 maximum-depth = 8)
+
+
+;; ex 5.45
+;
+; compiled factorial:
+; (factorial 2) -> (total-pushes = 5  maximum-depth = 3)
+; (factorial 3) -> (total-pushes = 7  maximum-depth = 4)
+; (factorial 4) -> (total-pushes = 9  maximum-depth = 6)
+; (factorial 5) -> (total-pushes = 11 maximum-depth = 8)
+; (factorial 6) -> (total-pushes = 13 maximum-depth = 10)
+;
+; total-pushes = 2n + 1, maximum-depth = 2n - 2
+;
+; interpreted factorial:
+; total-pushes = 32n - 16, maximum-depth = 5n + 3
+;
+; hand-tailored factorial:
+; total-pushes = 2n - 2, maximum-depth = 2n - 2
+;
+; conclusion:
+; compilation is 16 times faster than interpretation, and as fast as the hand-tailored factorial
+; compilation takes 2.5 times less space than interpretation, ans as much space as the hand-tailored factorial
+
+
+
+;; ex 5.46
+(compile-and-go
+ '(define (fib n)
+  (if (< n 2)
+      n
+      (+ (fib (- n 1)) (fib (- n 2))))))
+
+; (fib 1) -> (total-pushes = 5   maximum-depth = 3)
+; (fib 2) -> (total-pushes = 13  maximum-depth = 4)
+; (fib 3) -> (total-pushes = 21  maximum-depth = 6)
+; (fib 4) -> (total-pushes = 37  maximum-depth = 8)
+; (fib 5) -> (total-pushes = 61  maximum-depth = 10)
+;
+; total-pushes = 8 * Fib(n) - 3, maximum-depth = 2n
+;
+; interpreted fib:
+; total-pushes = 56 * Fib(n) - 40, maximum-depth = 5n + 3
+;
+; hand-tailored factorial:
+; total-pushes = 3 * Fib(n) - 3, maximum-depth = 2n - 2
+;
+; conclusion
+; compilation is 7 times faster than interpretation, and 2.67 times slower the hand-tailored factorial
+; compilation takes 2.5 times less space than interpretation, ans as much space as the hand-tailored factorial

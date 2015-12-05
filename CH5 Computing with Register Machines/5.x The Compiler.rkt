@@ -332,7 +332,7 @@
         (assign env (op compiled-procedure-env) (reg proc))
         (assign env (op extend-environment) (const ,formals) (reg argl) (reg env))))
      (compile-sequence
-       (lambda-body exp)  ; ex 5.43
+      (lambda-body exp)  ; ex 5.43
       'val 'return
       (extend-compile-time-environment formals env)))))
 

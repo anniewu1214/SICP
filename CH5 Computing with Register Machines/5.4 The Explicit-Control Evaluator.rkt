@@ -455,7 +455,7 @@
 ;                      | maximum-depth      | total-pushes
 ;                      | (linear)           | (exponential)
 ; ---------------------|--------------------|--------------------
-; recursive Fibonacci  | 5n + 3             |  56 * Fib(n+1) - 40
+; recursive Fibonacci  | 5n + 3             |  56 * Fib(n) - 40
 
 (define (fib n)
   (if (< n 2)
