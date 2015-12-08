@@ -13,10 +13,13 @@
      (goto (label test-b))
      gcd-done)))
 
+
 (set-register-contents! gcd-machine 'a 206)
 (set-register-contents! gcd-machine 'b 40)
 (start gcd-machine)
 (get-register-contents gcd-machine 'a) ; 2
+
+
 
 ;; ex 5.1, ex 5.2
 ;; factorial machine
@@ -33,9 +36,12 @@
      (goto (label test-counter))
      fac-done)))
 
+
 (set-register-contents! fac-machine 'n 5)
 (start fac-machine)
 (get-register-contents fac-machine 'product) ; 120
+
+
 
 ;; GCD machine that read inputs and prints results
 (define gcd-machine-read-inputs
@@ -55,7 +61,9 @@
      (perform (op print) (reg a))
      (goto (label gcd-loop)))))
 
+
 (start gcd-machine-read-inputs)
+
 
 
 ;; elaborated GCD machine
@@ -77,10 +85,13 @@
      (goto (label test-b))
      gcd-done)))
 
+
 (set-register-contents! elaborated-gcd-machine 'a 206)
 (set-register-contents! elaborated-gcd-machine 'b 40)
 (start elaborated-gcd-machine)
 (get-register-contents elaborated-gcd-machine 'a) ; 2
+
+
 
 ;; ex 5.3
 ;; square root register machine
@@ -103,8 +114,11 @@
      (goto (label test-good))
      sqrt-done)))
 
+
 (start sqrt-machine)
 (get-register-contents sqrt-machine 'guess)
+
+
 
 ;; elaborated square root register machine
 (define elaborated-sqrt-machine
@@ -131,7 +145,10 @@
      (perform (op print) (reg guess))
      (goto (label sqrt-loop)))))
 
+
 (start elaborated-sqrt-machine)
+
+
 
 ;; subroutines
 ;; recursive factorial machine
@@ -160,9 +177,12 @@
      (goto (reg continue))                 ; return to caller
      fact-done)))
 
+
 (set-register-contents! recursive-fact-machine 'n 5)
 (start recursive-fact-machine)
 (get-register-contents recursive-fact-machine 'val) ; 120
+
+
 
 ; ex 5.4, ex 5.7
 ; recursive exponentiation machine
@@ -186,10 +206,13 @@
      (goto (reg continue))
      exp-done)))
 
+
 (set-register-contents! recursive-exp-machine 'b 2)
 (set-register-contents! recursive-exp-machine 'n 10)
 (start recursive-exp-machine)
 (get-register-contents recursive-exp-machine 'val) ; 1024
+
+
 
 ; iterative exponentiation machine
 (define iterative-exp-machine
@@ -204,11 +227,14 @@
      (goto (label exp-loop))
      exp-done)))
 
+
 (set-register-contents! iterative-exp-machine 'b 2)
 (set-register-contents! iterative-exp-machine 'n 10)
 (start iterative-exp-machine)
 
 (get-register-contents iterative-exp-machine 'product) ; 1024
+
+
 
 ; ex 5.6, Fibonacci machine
 (define fib-machine
@@ -244,6 +270,7 @@
      (assign val (reg n))
      (goto (reg continue))
      fib-done)))
+
 
 (set-register-contents! fib-machine 'n 7)
 (start fib-machine)
