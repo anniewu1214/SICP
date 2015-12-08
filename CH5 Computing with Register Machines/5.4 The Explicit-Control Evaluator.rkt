@@ -6,9 +6,6 @@
   (make-machine
    eceval-operations
    '(
-     (branch (label external-entry))
-     
-     ;; running the evaluator
      read-eval-print-loop
      (perform (op initialize-stack))
      (perform (op prompt-for-input) (const ";;; EC-Eval input:"))
@@ -18,7 +15,7 @@
      (goto (label eval-dispatch))
      
      print-result
-     (perform (op print-stack-statistics)) ; added instruction
+     (perform (op print-stack-statistics))
      (perform (op announce-output) (const ";;; EC-Eval value:"))
      (perform (op user-print) (reg val))
      (goto (label read-eval-print-loop))
@@ -159,15 +156,8 @@
      (branch (label primitive-apply))
      (test (op compound-procedure?) (reg proc))  
      (branch (label compound-apply))
-     (test (op compiled-procedure?) (reg proc))  
-     (branch (label compiled-apply))
      (goto (label unknown-procedure-type))
      
-     
-     compiled-apply
-     (restore continue)
-     (assign val (op compiled-procedure-entry) (reg proc))
-     (goto (reg val))
      
      ;; ex 5.30
      ;; handling primitive procedure errors
@@ -217,25 +207,25 @@
      (goto (label eval-dispatch))
      
      
-;     ;; evaluating sequence without tail recursion
-;     ev-sequence
-;     (test (op no-more-exps?) (reg unev))
-;     (branch (label ev-sequence-end))
-;     (assign exp (op first-exp) (reg unev))
-;     (save unev)
-;     (save env)
-;     (assign continue (label ev-sequence-continue))
-;     (goto (label eval-dispatch))
-;     
-;     ev-sequence-continue
-;     (restore env)
-;     (restore unev)
-;     (assign unev (op rest-exps) (reg unev))
-;     (goto (label ev-sequence))
-;     
-;     ev-sequence-end
-;     (restore continue)
-;     (goto (reg continue))
+     ;     ;; evaluating sequence without tail recursion
+     ;     ev-sequence
+     ;     (test (op no-more-exps?) (reg unev))
+     ;     (branch (label ev-sequence-end))
+     ;     (assign exp (op first-exp) (reg unev))
+     ;     (save unev)
+     ;     (save env)
+     ;     (assign continue (label ev-sequence-continue))
+     ;     (goto (label eval-dispatch))
+     ;     
+     ;     ev-sequence-continue
+     ;     (restore env)
+     ;     (restore unev)
+     ;     (assign unev (op rest-exps) (reg unev))
+     ;     (goto (label ev-sequence))
+     ;     
+     ;     ev-sequence-end
+     ;     (restore continue)
+     ;     (goto (reg continue))
      
      
      ;; if
@@ -308,7 +298,6 @@
      (assign exp (op cond->if) (reg exp))
      (goto (label ev-if))
      
-     
      ;; ex 5.24, condition as special form
      ev-cond-ex24
      (assign unev (op cond-clauses) (reg exp))
@@ -345,38 +334,19 @@
      ;; let
      ev-let
      (assign exp (op let->combination) (reg exp))
-     (goto (label ev-lambda))
-     
-     external-entry
-     (perform (op initialize-stack))
-     (assign env (op get-global-environment))
-     (assign continue (label print-result))
-     (goto (reg val)))))
+     (goto (label ev-lambda)))))
 
-;; start the evaluator at its ordinary REPL
-(define (start-eceval)
-  (set! the-global-environment (setup-environment))
-  (set-register-contents! eceval 'flag false)
-  (start eceval))
 
 
 
 ;; start the evaluator
-(define (compile-and-go expression)
-  (let ((instructions
-         (assemble (statements (compile expression 'val 'return '()))
-                   eceval)))
-    (set! the-global-environment (setup-environment))
-    (set-register-contents! eceval 'val instructions)
-    (set-register-contents! eceval 'flag true)
-    (start eceval)))
+
+(start eceval)
 
 
-;; start the evaluator
-(start-eceval)
 
+;; test
 
-;; append
 (define (append x y)
   (if (null? x)
       y
@@ -386,13 +356,30 @@
 
 
 
-;; ex 5.26, ex 5.27
-;
+; ex 5.26
+; ex 5.27
+
+(define (factorial-iter n)
+  (define (iter product counter)
+    (if (> counter n)
+        product
+        (iter (* counter product)
+              (+ counter 1))))
+  (iter 1 1))
+
+
+(define (factorial-rec n)
+  (if (= n 1)
+      1
+      (* (factorial-rec (- n 1)) n)))
+
+
 ; (factorial-iter 1) -> (total-pushes = 64  maximum-depth = 10)
 ; (factorial-iter 2) -> (total-pushes = 99  maximum-depth = 10)
 ; (factorial-iter 3) -> (total-pushes = 134 maximum-depth = 10)
 ; (factorial-iter 4) -> (total-pushes = 169 maximum-depth = 10)
-;
+
+
 ; (factorial-rec 1)  -> (total-pushes = 16  maximum-depth = 8)
 ; (factorial-rec 2)  -> (total-pushes = 48  maximum-depth = 13)
 ; (factorial-rec 3)  -> (total-pushes = 80  maximum-depth = 18)
@@ -406,70 +393,61 @@
 ; iterative factorial  | 10                 |  35n + 29
 
 
-(define (factorial-iter n)
-  (define (iter product counter)
-    (if (> counter n)
-        product
-        (iter (* counter product)
-              (+ counter 1))))
-  (iter 1 1))
-
-(define (factorial-rec n)
-  (if (= n 1)
-      1
-      (* (factorial-rec (- n 1)) n)))
 
 
+; ex 5.28
+; eval-sequence no longer tail-recursive
 
-;; ex 5.28
-;; eval-sequence no longer tail-recursive
-;
+
 ; (factorial-iter 1) -> (total-pushes = 70  maximum-depth = 17)
 ; (factorial-iter 2) -> (total-pushes = 107 maximum-depth = 20)
 ; (factorial-iter 3) -> (total-pushes = 144 maximum-depth = 23)
 ; (factorial-iter 4) -> (total-pushes = 181 maximum-depth = 26)
-;
+
 ; (factorial-rec 1)  -> (total-pushes = 18  maximum-depth = 11)
 ; (factorial-rec 2)  -> (total-pushes = 52  maximum-depth = 19)
 ; (factorial-rec 3)  -> (total-pushes = 86  maximum-depth = 27)
 ; (factorial-rec 4)  -> (total-pushes = 120 maximum-depth = 35)
-;
-;
-;                      | maximum-depth      | total-pushes
-; ---------------------|--------------------|-------------------
-; recursive factorial  | 37n + 33           |  3n + 14
-; iterative factorial  | 34n - 16           |  8n + 3
+
+
+
+;                      | maximum-depth  | total-pushes
+; ---------------------|----------------|-------------------
+; recursive factorial  | 37n + 33       |  3n + 14
+; iterative factorial  | 34n - 16       |  8n + 3
+
 
 
 
 ; ex 5.29
-;
-; (fib 0) -> (total-pushes = 16 maximum-depth = 8)
-; (fib 1) -> (total-pushes = 16 maximum-depth = 8)
-; (fib 2) -> (total-pushes = 72 maximum-depth = 13)
-; (fib 3) -> (total-pushes = 128 maximum-depth = 18)
-; (fib 4) -> (total-pushes = 240 maximum-depth = 23)
-; (fib 5) -> (total-pushes = 408 maximum-depth = 28)
-;
-;
-;                      | maximum-depth      | total-pushes
-;                      | (linear)           | (exponential)
-; ---------------------|--------------------|--------------------
-; recursive Fibonacci  | 5n + 3             |  56 * Fib(n) - 40
 
 (define (fib n)
   (if (< n 2)
       n
       (+ (fib (- n 1)) (fib (- n 2)))))
 
+; (fib 0) -> (total-pushes = 16 maximum-depth = 8)
+; (fib 1) -> (total-pushes = 16 maximum-depth = 8)
+; (fib 2) -> (total-pushes = 72 maximum-depth = 13)
+; (fib 3) -> (total-pushes = 128 maximum-depth = 18)
+; (fib 4) -> (total-pushes = 240 maximum-depth = 23)
+; (fib 5) -> (total-pushes = 408 maximum-depth = 28)
 
 
-;; ex 5.30
-;
+
+;                      | maximum-depth | total-pushes
+;                      | (linear)      | (exponential)
+; ---------------------|---------------|-------------------
+; recursive Fibonacci  | 5n + 3        | 56 * Fib(n) - 40
+
+
+
+
+; ex 5.30
 ; a. procedure lookup-variable-value and ev-variable modified.
 ; b. new safe-car and safe-div procedure, primitive-apply modified
-;
-;; test in REPL
+
+; test in REPL
 a          ; unbounded-variable-error
 (car 'a)   ; car-on-non-pair-error
 (/ 1 0)    ; zero-division-error
