@@ -1,5 +1,6 @@
 #lang planet neil/sicp
 
+
 ;; the compiler
 
 (define (compile exp target linkage)
@@ -20,10 +21,13 @@
 ;; combining instruction sequences
 
 (define (make-instruction-sequence needs modifies statements) (list needs modifies statements))
+
 (define (empty-instruction-sequence) (make-instruction-sequence '() '() '()))
 
 (define (registers-needed s) (if (symbol? s) '() (car s)))
+
 (define (registers-modified s) (if (symbol? s) '() (cadr s)))
+
 (define (statements s) (if (symbol? s) (list s) (caddr s)))
 
 (define (memq item x)
@@ -32,10 +36,13 @@
         (else (memq item (cdr x)))))
 
 (define (needs-register? seq reg) (memq reg (registers-needed seq)))
+
 (define (modifies-register? seq reg) (memq reg (registers-modified seq)))
 
 
+
 ;; appending instructions sequences
+
 (define (append-instruction-sequences . seqs)
   (define (append-2-sequences seq1 seq2)
     (make-instruction-sequence
@@ -67,7 +74,9 @@
         (else (cons (car s1) (list-difference (cdr s1) s2)))))
 
 
+
 ;; preserving
+
 (define (preserving regs seq1 seq2)
   (if (null? regs)
       (append-instruction-sequences seq1 seq2)
@@ -87,7 +96,9 @@
             (preserving (cdr regs) seq1 seq2)))))
 
 
+
 ;; append procedure body to another sequence
+
 (define (tack-on-instruction-sequence seq body-seq)
   (make-instruction-sequence
    (registers-needed seq)
@@ -95,7 +106,9 @@
    (append (statements seq) (statements body-seq))))
 
 
+
 ;; append two alternative branchs following a test
+
 (define (parallel-instruction-sequences seq1 seq2)
   (make-instruction-sequence
    (list-union (registers-needed seq1)
@@ -106,8 +119,8 @@
 
 
 
-;; ex 5.31
-;
+; ex 5.31
+
 ;  (f 'x 'y)        all saves and restores are superfluous
 ;  ((f) 'x 'y)      ditto, because 'x and 'y are independent of env
 ;  (f (g 'x) y)     save and restore proc, env and argl, because of (g 'x) and y
@@ -122,6 +135,7 @@
 ; b. 1. testing special cases adds additional overhead
 ;    2. some optimizations of compiler can't be done by adding rules to the interpreter,
 ;       e.g., the interpreter would examine expressions everytime for dispatching.
+
 
 
 
@@ -171,35 +185,30 @@
                                (reg env))))))
 
 
+
+;; compiling assignments and definitions
+
 (define (compile-assignment exp target linkage)
   (let ((var (assignment-variable exp))
-        (get-value-code
-         (compile (assignment-value exp) 'val 'next)))
+        (get-value-code (compile (assignment-value exp) 'val 'next)))
     (end-with-linkage linkage
                       (preserving '(env)
                                   get-value-code
                                   (make-instruction-sequence
                                    '(env val) (list target)
-                                   `((perform (op set-variable-value!)
-                                              (const ,var)
-                                              (reg val)
-                                              (reg env))
+                                   `((perform (op set-variable-value!) (const ,var) (reg val) (reg env))
                                      (assign ,target (const ok))))))))
 
 
 (define (compile-definition exp target linkage)
   (let ((var (definition-variable exp))
-        (get-value-code
-         (compile (definition-value exp) 'val 'next)))
+        (get-value-code (compile (definition-value exp) 'val 'next)))
     (end-with-linkage linkage
                       (preserving '(env)
                                   get-value-code
                                   (make-instruction-sequence
                                    '(env val) (list target)
-                                   `((perform (op define-variable!)
-                                              (const ,var)
-                                              (reg val)
-                                              (reg env))
+                                   `((perform (op define-variable!) (const ,var) (reg val) (reg env))
                                      (assign ,target (const ok))))))))
 
 
@@ -249,6 +258,7 @@
                      after-if))))))
 
 
+
 ;; compiling sequences
 
 (define (compile-sequence seq target linkage)
@@ -263,8 +273,11 @@
 ;; representing compiled procedures
 
 (define (make-compiled-procedure entry env) (list 'compiled-procedure entry env))
+
 (define (compiled-procedure? proc) (tagged-list? proc 'compiled-procedure))
+
 (define (compiled-procedure-entry c-proc) (cadr c-proc))
+
 (define (compiled-procedure-env c-proc) (caddr c-proc))
 
 
@@ -312,6 +325,7 @@
                 (preserving '(proc continue)
                             (construct-arglist operand-codes)
                             (compile-procedure-call target linkage)))))
+
 
 
 ;; compiling operands and construct argument list
@@ -419,10 +433,10 @@
 
 
 
-
 ;; test
 
 ;; use pretty-display of Racket
+
 (display (compile
           '(define (factorial n)
              (if (= n 1)
@@ -431,12 +445,14 @@
           'val
           'next))
 
+
 (set! label-counter 0)
 (newline)
 (newline)
 
 
-;; compilation of the definition of the factorial procedure
+
+;; compilation result of the factorial procedure definition
 
 (define compiled-factorial-rec
   '(
@@ -570,8 +586,9 @@
 
 
 
+
 ; ex 5.33
-;
+
 ; only two blocks are changed false-branch4 and after-call9, and
 ; there's no difference in efficiency.
 
@@ -613,6 +630,7 @@ after-call9
           'val
           'next))
 
+
 (set! label-counter 0)
 (newline)
 (newline)
@@ -633,12 +651,13 @@ after-call9
           'val
           'next))
 
+
 (set! label-counter 0)
 (newline)
 (newline)
 
 
-;; compiled instructions
+;; compilation result of the iterative factorial definition
 
 (define compiled-factorial-iter
   '(
@@ -795,7 +814,6 @@ after-call9
 
 
 
-
 ; ex 5.35
 (define (f x)
   (+ x (g (+ x 2))))
@@ -803,7 +821,7 @@ after-call9
 
 
 ; ex 5.36
-;
+
 ; the compiler evaluates operands from right to left, this is because in
 ; construct-arglist, we've reversed operand codes, and then processed the
 ; list of compiled operand codes from left to right.
