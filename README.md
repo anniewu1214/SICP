@@ -1,5 +1,5 @@
 # SICP
-This repository records my learning of SICP(*Structure and Interpretation of Computer Programs*), including book notes and exercise solutions. The objective is to understand the foundations of computer science. 
+Notes and exercise solutions of SICP (**Structure and Interpretation of Computer Programs**).
 
 ### Table of contents
 
